@@ -104,8 +104,40 @@ function toast(message, kind) {
   setTimeout(() => el.remove(), 4200);
 }
 // ---------------------------------------------------------------------------
-// Bridge: Wails binding OR HTTP /api OR in-page mock — one call site.
+// Bridge: Wails binding OR HTTP /api OR explicit ?demo=1 mock — one call site.
 // ---------------------------------------------------------------------------
+const BACKEND_UNAVAILABLE_MESSAGE = "Backend unavailable. Start the Go server or desktop app, then click Retry. For UI-only demo, open with ?demo=1.";
+
+function demoRequested() {
+  if (CONFIG.backend === "mock") return true;
+  try {
+    return new URLSearchParams(window.location.search || "").get("demo") === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+let demoLoadPromise = null;
+function loadDemoBackend() {
+  if (window.__consoleMock) return Promise.resolve(window.__consoleMock);
+  if (!demoLoadPromise) {
+    demoLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "./js/mock-backend.js";
+      script.onload = () => {
+        if (window.__consoleMock) resolve(window.__consoleMock);
+        else reject(new Error("Demo backend did not initialize."));
+      };
+      script.onerror = () => reject(new Error("Demo backend failed to load."));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      demoLoadPromise = null;
+      throw error;
+    });
+  }
+  return demoLoadPromise;
+}
+
 const bridge = {
   kind: "unknown",
   api: null,
@@ -117,7 +149,8 @@ const bridge = {
         }
         return await this.api[method](...args);
       }
-      return await httpInvoke(method, ...args);
+      if (this.kind === "http") return await httpInvoke(method, ...args);
+      throw new Error(BACKEND_UNAVAILABLE_MESSAGE);
     } catch (error) {
       reportFrontendError(`Backend ${method} failed`, error);
       throw error;
@@ -155,27 +188,42 @@ async function httpInvoke(method, ...args) {
 }
 
 async function resolveBridge() {
+  bridge.api = null;
+
+  if (demoRequested()) {
+    try {
+      const mockApi = await loadDemoBackend();
+      if (mockApi) {
+        bridge.kind = "mock";
+        bridge.api = mockApi;
+        return;
+      }
+    } catch (error) {
+      reportFrontendError("Demo backend load failed", error);
+    }
+    bridge.kind = "unavailable";
+    return;
+  }
+
   const wailsApi = window.go && window.go.main && (window.go.main.DesktopApp || window.go.main.App);
-  if (CONFIG.backend !== "http" && CONFIG.backend !== "mock" && wailsApi) {
+  if (CONFIG.backend !== "http" && wailsApi) {
     bridge.kind = "wails";
     bridge.api = wailsApi;
     return;
   }
 
-  if (CONFIG.backend !== "mock") {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 900);
-      const res = await fetch(`${CONFIG.apiPrefix}/GetSnapshot`, { signal: controller.signal });
-      clearTimeout(timer);
-      if (res.ok) { bridge.kind = "http"; return; }
-    } catch (_) { /* no HTTP backend listening — fall through */ }
-  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 900);
+    const res = await fetch(`${CONFIG.apiPrefix}/GetSnapshot`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      bridge.kind = "http";
+      return;
+    }
+  } catch (_) { /* no HTTP backend listening */ }
 
-  const mockApi = window.__consoleMock;
-  if (mockApi) { bridge.kind = "mock"; bridge.api = mockApi; return; }
-
-  bridge.kind = "http"; // last resort: show real errors from the HTTP path
+  bridge.kind = "unavailable";
 }
 
 function reportFrontendError(context, error) {
@@ -236,16 +284,30 @@ function setBusy(busy) {
 }
 
 function backendLabel() {
-  return { wails: "wails", http: "http", mock: "demo", unknown: "…" }[bridge.kind] || bridge.kind;
+  return { wails: "wails", http: "http", mock: "demo", unavailable: "unavailable", unknown: "…" }[bridge.kind] || bridge.kind;
 }
 
 function renderBackendPill() {
   const pill = byId("backend-pill");
-  if (!pill) return;
-  pill.textContent = backendLabel();
-  pill.className = "pill " + (bridge.kind === "mock" ? "stopped" : "running");
-  const banner = byId("demo-banner");
-  if (banner) banner.hidden = bridge.kind !== "mock";
+  if (pill) {
+    pill.textContent = backendLabel();
+    pill.className = "pill " + (bridge.kind === "wails" || bridge.kind === "http" ? "running" : "stopped");
+  }
+  const demoBanner = byId("demo-banner");
+  if (demoBanner) demoBanner.hidden = bridge.kind !== "mock";
+  const unavailableBanner = byId("backend-unavailable-banner");
+  if (unavailableBanner) unavailableBanner.hidden = bridge.kind !== "unavailable";
+  if (bridge.kind === "unavailable") setStatus("home-status", BACKEND_UNAVAILABLE_MESSAGE, "error");
+}
+
+async function retryBackend() {
+  setStatus("home-status", "Checking backend…");
+  await resolveBridge();
+  renderBackendPill();
+  if (bridge.kind !== "unavailable") {
+    setStatus("home-status", "Backend connected.", "ok");
+    await refreshSnapshot(true).catch(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -657,6 +719,7 @@ function bindActions() {
   };
 
   on("demo-hide", () => { const b = byId("demo-banner"); if (b) b.hidden = true; });
+  on("backend-retry", retryBackend);
   on("home-refresh", () => refreshSnapshot(false));
   on("proxy-refresh", () => refreshSnapshot(false));
   on("msg-refresh", () => refreshSnapshot(false));
@@ -722,19 +785,21 @@ async function bootstrap() {
   renderBackendPill();
   subscribeEvents();
 
-  let attempts = 0;
-  while (attempts < 25) {
-    attempts += 1;
-    try {
-      await refreshSnapshot(true);
-      break;
-    } catch (_) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+  if (bridge.kind !== "unavailable") {
+    let attempts = 0;
+    while (attempts < 25) {
+      attempts += 1;
+      try {
+        await refreshSnapshot(true);
+        break;
+      } catch (_) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
     }
   }
 
-  setInterval(() => { refreshLogs(); }, CONFIG.pollLogsMs);
-  setInterval(() => { refreshSnapshot(true).catch(() => {}); }, CONFIG.pollStatsMs);
+  setInterval(() => { if (bridge.kind !== "unavailable") refreshLogs(); }, CONFIG.pollLogsMs);
+  setInterval(() => { if (bridge.kind !== "unavailable") refreshSnapshot(true).catch(() => {}); }, CONFIG.pollStatsMs);
 }
 
 window.addEventListener("error", (event) => {

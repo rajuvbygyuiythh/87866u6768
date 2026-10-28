@@ -141,6 +141,7 @@ function loadAppForDraftTests() {
   const document = {
     activeElement: null,
     documentElement: { dataset: {} },
+    head: { appendChild() {} },
     getElementById: (id) => elements.get(id) || null,
     createElement: (tag) => makeEl(tag),
     createDocumentFragment: () => ({ appendChild() {} }),
@@ -162,14 +163,16 @@ function loadAppForDraftTests() {
   };
   const context = vm.createContext({
     document,
-    window: { addEventListener() {}, runtime: {} },
+    window: { addEventListener() {}, runtime: {}, location: { search: "" } },
+    URLSearchParams,
+    AbortController,
     localStorage: { getItem: () => null, setItem() {} },
     setInterval() {},
     setTimeout() { return 0; },
     clearTimeout() {},
     console,
   });
-  const expose = "\n;globalThis.__draftTest = { dirtyFields, bindDraftTracking, markDirty, clearSectionDirty, setValue, saveSection, setStrategy, refreshSnapshot, browseFolder, httpInvoke, bridge };";
+  const expose = "\n;globalThis.__draftTest = { dirtyFields, bindDraftTracking, markDirty, clearSectionDirty, setValue, saveSection, setStrategy, refreshSnapshot, browseFolder, httpInvoke, resolveBridge, renderBackendPill, retryBackend, demoRequested, bridge };";
   vm.runInContext(appJs + expose, context);
   return { context, api: context.__draftTest, makeEl, document };
 }
@@ -302,4 +305,76 @@ test("Browse folder in desktop mode still fills and marks the path dirty", async
   assert.equal(input.value, "D:\\sms");
   assert.ok(api.dirtyFields.has("msg-folder-path"));
   assert.match(status.textContent, /Folder selected/i);
+});
+
+// ---------------------------------------------------------------------------
+// Explicit demo opt-in / backend unavailable (Step 4)
+// ---------------------------------------------------------------------------
+test("index.html no longer statically loads the demo backend", () => {
+  assert.doesNotMatch(html, /<script[^>]+mock-backend\.js/);
+  assert.match(html, /id="backend-unavailable-banner"/);
+  assert.match(html, /id="backend-retry"/);
+  assert.match(html, /\?demo=1/);
+});
+
+test("an available mock is never used without explicit demo opt-in", async () => {
+  const { context, api } = loadAppForDraftTests();
+  context.window.__consoleMock = { GetSnapshot: async () => ({}) };
+  let probed = false;
+  context.fetch = async () => { probed = true; return { ok: false }; };
+  await api.resolveBridge();
+  assert.equal(probed, true);
+  assert.equal(api.bridge.kind, "unavailable");
+  assert.equal(api.bridge.api, null);
+  await assert.rejects(() => api.bridge.invoke("GetSnapshot"), /Backend unavailable/);
+});
+
+test("?demo=1 loads the demo backend without probing HTTP", async () => {
+  const { context, api, document } = loadAppForDraftTests();
+  context.window.location.search = "?demo=1";
+  let probed = false;
+  context.fetch = async () => { probed = true; throw new Error("unexpected HTTP probe"); };
+  const mock = { GetSnapshot: async () => ({ ok: true }) };
+  document.head.appendChild = (script) => {
+    assert.equal(script.src, "./js/mock-backend.js");
+    context.window.__consoleMock = mock;
+    script.onload();
+  };
+  await api.resolveBridge();
+  assert.equal(probed, false);
+  assert.equal(api.bridge.kind, "mock");
+  assert.equal(api.bridge.api, mock);
+});
+
+test("failed demo load stays unavailable instead of falling back to HTTP", async () => {
+  const { context, api, document } = loadAppForDraftTests();
+  context.window.location.search = "?demo=1";
+  let probed = false;
+  context.fetch = async () => { probed = true; return { ok: true }; };
+  document.head.appendChild = (script) => script.onerror();
+  await api.resolveBridge();
+  assert.equal(probed, false);
+  assert.equal(api.bridge.kind, "unavailable");
+});
+
+test("Backend unavailable banner can retry into HTTP", async () => {
+  const { context, api, makeEl } = loadAppForDraftTests();
+  const pill = makeEl("span", "backend-pill");
+  const demoBanner = makeEl("div", "demo-banner");
+  const unavailableBanner = makeEl("div", "backend-unavailable-banner");
+  const homeStatus = makeEl("p", "home-status");
+  unavailableBanner.hidden = true;
+  let backendUp = false;
+  context.fetch = async () => backendUp ? { ok: true, json: async () => ({}) } : { ok: false };
+  await api.resolveBridge();
+  api.renderBackendPill();
+  assert.equal(api.bridge.kind, "unavailable");
+  assert.equal(unavailableBanner.hidden, false);
+  assert.equal(pill.textContent, "unavailable");
+  assert.match(homeStatus.textContent, /Backend unavailable/);
+  backendUp = true;
+  await api.retryBackend();
+  assert.equal(api.bridge.kind, "http");
+  assert.equal(unavailableBanner.hidden, true);
+  assert.match(homeStatus.textContent, /Backend connected/);
 });

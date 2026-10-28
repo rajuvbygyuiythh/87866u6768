@@ -36,7 +36,7 @@
         </div>
         <div class="status-row">
           <span class="status-label">Backend</span>
-          <span id="backend-pill" class="pill stopped">demo</span>
+          <span id="backend-pill" class="pill stopped">…</span>
         </div>
       </div>
     </aside>
@@ -65,10 +65,15 @@
           </div>
         </header>
 
-        <!-- starter-only: proves the UI runs without a backend. Delete it. -->
+        <!-- Explicit demo only: open the page with ?demo=1. -->
         <div class="demo-banner" id="demo-banner" hidden>
-          <span><strong>Demo backend active.</strong> The UI is running on in-memory mock data — no Go or HTTP backend connected.</span>
+          <span><strong>Demo backend active.</strong> The UI is running on in-memory mock data — no Go or HTTP backend connected. Opt in with <code>?demo=1</code>.</span>
           <button id="demo-hide" type="button">Hide</button>
+        </div>
+
+        <div class="backend-unavailable-banner" id="backend-unavailable-banner" hidden>
+          <span><strong>Backend unavailable.</strong> Start the Go server or desktop app, then click Retry. For UI-only demo, open with <code>?demo=1</code>.</span>
+          <button id="backend-retry" type="button">Retry</button>
         </div>
 
         <div class="home-stats" aria-label="Fleet status">
@@ -357,8 +362,7 @@
 
   <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
 
-  <!-- mock backend: delete these two lines when a real backend exists -->
-  <script src="./js/mock-backend.js"></script>
+  <!-- Demo backend is loaded dynamically only for explicit ?demo=1 opt-in. -->
   <script src="./app.js"></script>
 </body>
 </html>
