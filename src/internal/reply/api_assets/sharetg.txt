@@ -1,0 +1,14 @@
+# API Chat TELEGRAM share deck. One line = one share message.
+# This whole file is telegram-only: when the assigned handle is a telegram
+# handle ("tg:..." in the dashboard), the share line is picked from HERE.
+# (Snap lines live in sharesnap.txt.)
+#
+# %username% is replaced by the app with a dashboard handle. Never write @
+# usernames here. A [tg] tag at the start of a line is still understood and
+# stripped, but it is NOT needed in this file.
+btw i have my own telegram where i post more personal stuff: %username%
+i barely use this app tbh, my telegram is %username%
+lets move to telegram, its way better for chatting: %username%
+my tg is %username%, come say hi there
+telegram: %username% .. msg me there
+add my tg %username%, im way more active there

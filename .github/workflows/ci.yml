@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: ["arena/**"]
+  pull_request:
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax checks
+        run: |
+          node --check src/frontend/dist/app.js
+          node --check src/frontend/dist/js/mock-backend.js
+      - name: Contract and tooling tests
+        run: node --test tests/contract.test.cjs tests/project-manager.test.cjs
+
+  go-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: src/go.mod
+      - name: Go internal package tests
+        working-directory: src
+        run: go test ./internal/...

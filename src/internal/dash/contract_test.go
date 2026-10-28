@@ -1,0 +1,162 @@
+package dash
+
+import (
+	"testing"
+)
+
+// The Profile section still saves name/backend/headless; the launch_mode
+// option was removed — the exe itself is the only thing that opens chrome
+// now, so the snapshot must NOT advertise a launch_mode field anymore.
+func TestSaveSectionProfile(t *testing.T) {
+	a := Open(t.TempDir())
+
+	snap, err := a.SaveSection("profile", map[string]any{
+		"name":     "default",
+		"backend":  "chromedp",
+		"headless": false,
+	})
+	if err != nil {
+		t.Fatalf("SaveSection: %v", err)
+	}
+	settings, ok := snap["settings"].(map[string]any)
+	if !ok {
+		t.Fatalf("snapshot has no settings: %#v", snap)
+	}
+	profile, ok := settings["profile"].(map[string]any)
+	if !ok {
+		t.Fatalf("snapshot has no profile section: %#v", settings)
+	}
+	if _, exists := profile["launch_mode"]; exists {
+		t.Fatalf("profile.launch_mode must not be advertised anymore")
+	}
+}
+
+func setupSettings(t *testing.T, snap map[string]any) map[string]any {
+	t.Helper()
+	settings, ok := snap["settings"].(map[string]any)
+	if !ok {
+		t.Fatalf("snapshot has no settings: %#v", snap)
+	}
+	setup, ok := settings["setup"].(map[string]any)
+	if !ok {
+		t.Fatalf("snapshot has no setup section: %#v", settings)
+	}
+	return setup
+}
+
+// StartRun saves only {mode, concurrency}. Omitted setup keys must survive.
+func TestSaveSectionSetupPartialPreservesOmittedKeys(t *testing.T) {
+	a := Open(t.TempDir())
+	a.st.SaveSettings(map[string]string{
+		"workspace_name":  "keep-name",
+		"bot_mode":        "visible",
+		"concurrency":     "2",
+		"timeout_seconds": "90",
+		"headless":        "true",
+		"notes":           "keep-notes",
+	})
+
+	snap, err := a.SaveSection("setup", map[string]any{
+		"mode":        "ws",
+		"concurrency": float64(7),
+	})
+	if err != nil {
+		t.Fatalf("SaveSection: %v", err)
+	}
+	setup := setupSettings(t, snap)
+	want := map[string]any{
+		"name":            "keep-name",
+		"mode":            "ws",
+		"concurrency":     7,
+		"timeout_seconds": 90,
+		"headless":        true,
+		"notes":           "keep-notes",
+	}
+	for key, expected := range want {
+		if got := setup[key]; got != expected {
+			t.Errorf("setup[%s] = %#v, want %#v", key, got, expected)
+		}
+	}
+}
+
+// An omitted mode must not reset a stored ws mode back to visible.
+func TestSaveSectionSetupOmittedModePreservesStoredMode(t *testing.T) {
+	a := Open(t.TempDir())
+	a.st.SaveSettings(map[string]string{"bot_mode": "ws", "concurrency": "2"})
+
+	snap, err := a.SaveSection("setup", map[string]any{"concurrency": float64(4)})
+	if err != nil {
+		t.Fatalf("SaveSection: %v", err)
+	}
+	setup := setupSettings(t, snap)
+	if setup["mode"] != "ws" {
+		t.Errorf("mode = %#v, want ws", setup["mode"])
+	}
+	if setup["concurrency"] != 4 {
+		t.Errorf("concurrency = %#v, want 4", setup["concurrency"])
+	}
+}
+
+// Explicit false/empty values are real updates, not "missing" values.
+func TestSaveSectionSetupExplicitFalseAndEmptyUpdates(t *testing.T) {
+	a := Open(t.TempDir())
+	a.st.SaveSettings(map[string]string{
+		"workspace_name":  "old-name",
+		"timeout_seconds": "90",
+		"headless":        "true",
+		"notes":           "old-notes",
+	})
+
+	snap, err := a.SaveSection("setup", map[string]any{
+		"name":            "",
+		"timeout_seconds": "",
+		"headless":        false,
+		"notes":           "",
+	})
+	if err != nil {
+		t.Fatalf("SaveSection: %v", err)
+	}
+	setup := setupSettings(t, snap)
+	if setup["headless"] != false {
+		t.Errorf("headless = %#v, want false", setup["headless"])
+	}
+	if setup["notes"] != "" {
+		t.Errorf("notes = %#v, want empty", setup["notes"])
+	}
+	stored := a.st.Settings()
+	for _, key := range []string{"workspace_name", "timeout_seconds", "notes"} {
+		if stored[key] != "" {
+			t.Errorf("stored %s = %q, want explicitly empty", key, stored[key])
+		}
+	}
+}
+
+// A full setup save must keep working exactly as before.
+func TestSaveSectionSetupFullSaveStillWorks(t *testing.T) {
+	a := Open(t.TempDir())
+	snap, err := a.SaveSection("setup", map[string]any{
+		"name":            "new-name",
+		"mode":            "visible",
+		"concurrency":     float64(3),
+		"timeout_seconds": float64(45),
+		"headless":        true,
+		"notes":           "new-notes",
+	})
+	if err != nil {
+		t.Fatalf("SaveSection: %v", err)
+	}
+	setup := setupSettings(t, snap)
+	want := map[string]any{
+		"name":            "new-name",
+		"mode":            "visible",
+		"concurrency":     3,
+		"timeout_seconds": 45,
+		"headless":        true,
+		"notes":           "new-notes",
+	}
+	for key, expected := range want {
+		if got := setup[key]; got != expected {
+			t.Errorf("setup[%s] = %#v, want %#v", key, got, expected)
+		}
+	}
+}

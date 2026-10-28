@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thundr Bot</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #161716;
+  --panel: #20221e;
+  --panel-alt: #282b25;
+  --panel-strong: #30342d;
+  --line: #3e4439;
+  --text: #eef2e8;
+  --muted: #b5beb0;
+  --accent: #83cb73;
+  --accent-strong: #6bb25b;
+  --warn: #d9b74d;
+  --danger: #d36a6a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+button, input, select, textarea { font: inherit; }
+
+button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13.5px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.primary-button { background: var(--accent); border-color: var(--accent); color: #162010; }
+.primary-button:hover:not(:disabled) { background: var(--accent-strong); }
+.secondary-button { background: var(--panel-alt); color: var(--text); }
+.secondary-button:hover:not(:disabled) { border-color: var(--accent); }
+.danger-button { background: transparent; color: #efb2b2; border-color: rgba(211, 106, 106, 0.55); }
+.danger-button:hover:not(:disabled) { border-color: var(--danger); }
+.small-button { padding: 5px 10px; font-size: 12px; }
+
+/* ------------------------------------------------------------------ shell */
+.shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  flex: 0 0 238px;
+  width: 238px;
+  height: 100vh;
+  padding: 22px 16px;
+  border-right: 1px solid var(--line);
+  background: #191b17;
+}
+
+.brand { display: flex; align-items: center; gap: 11px; padding: 2px 4px; }
+.brand-mark {
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #162010;
+  font-weight: 700;
+}
+.brand-title { font-size: 18px; font-weight: 700; }
+.brand-subtitle { color: var(--muted); font-size: 12px; }
+
+.nav { display: grid; gap: 6px; }
+.nav-button {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+}
+.nav-button:hover { background: var(--panel); }
+.nav-button.active {
+  background: rgba(131, 203, 115, 0.1);
+  border-color: rgba(131, 203, 115, 0.45);
+  color: var(--accent);
+}
+
+.subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 10px;
+  padding: 6px 0 6px 10px;
+  border-left: 1px solid var(--line);
+}
+.subnav-button {
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.subnav-button:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
+.subnav-button.active {
+  border-color: rgba(131, 203, 115, 0.28);
+  background: rgba(131, 203, 115, 0.1);
+  color: var(--accent);
+}
+
+.sidebar-footer { margin-top: auto; display: grid; gap: 10px; }
+.status-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+}
+.status-label { color: var(--muted); font-size: 13px; }
+.pill { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.pill.running { background: rgba(131, 203, 115, 0.18); color: var(--accent); }
+.pill.stopped { background: rgba(211, 106, 106, 0.18); color: #efb2b2; }
+
+/* ------------------------------------------------------------------- main */
+.main { flex: 1; min-width: 0; height: 100vh; overflow-y: auto; padding: 26px 30px 48px; }
+.tab-panel { max-width: 1180px; margin: 0 auto; }
+
+.panel-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 18px; margin-bottom: 18px;
+}
+.panel-header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.2px; }
+.panel-header p { margin: 0; max-width: 720px; color: var(--muted); font-size: 14px; }
+.title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.title-row h1 { margin: 0; }
+.mode-badge {
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: rgba(131, 203, 115, 0.12);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mode-badge.idle { background: rgba(181, 190, 176, 0.12); color: var(--muted); }
+
+.actions, .form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.form-actions.inline { align-items: center; }
+
+.status-line { color: var(--muted); font-size: 13px; }
+.status-error { color: #ff9c9c; }
+.status-ok { color: var(--accent); }
+
+/* -------------------------------------------------------------- stat row */
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-capsule {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid rgba(131, 203, 115, 0.35);
+  border-radius: 999px;
+  background: rgba(131, 203, 115, 0.1);
+}
+.stat-capsule span {
+  color: var(--muted); font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stat-capsule strong { color: var(--accent); font-size: 17px; }
+.stat-capsule.danger { border-color: rgba(211, 106, 106, 0.4); background: rgba(211, 106, 106, 0.12); }
+.stat-capsule.danger strong { color: var(--danger); }
+
+/* ------------------------------------------------------------------ cards */
+.card {
+  display: flex; flex-direction: column; gap: 11px;
+  min-width: 0;
+  padding: 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.card h2 { margin: 0; font-size: 16px; }
+.card h3 {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+
+.subpanel { display: none; }
+.subpanel.active { display: block; }
+.subpage { width: 100%; max-width: 1100px; }
+.subpage.narrow { max-width: 760px; }
+
+/* ------------------------------------------------------------------ forms */
+label { display: block; }
+label > span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12.5px; }
+label.checkbox-row > span, .checkbox-row > span { display: inline; margin: 0; color: var(--text); font-size: 13.5px; }
+
+input, select, textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #191b17;
+  color: var(--text);
+  font-size: 13.5px;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input:disabled, select:disabled { opacity: 0.55; }
+textarea { min-height: 84px; resize: vertical; font-family: Consolas, monospace; font-size: 12.5px; }
+
+.checkbox-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.checkbox-row input { width: auto; accent-color: var(--accent); }
+
+.form-grid { display: grid; gap: 12px; }
+.form-grid.two-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-grid.three-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.hint-text { margin: 0; color: var(--muted); font-size: 12.5px; }
+
+/* browser diagnostics (Accounts & Browser panel) */
+.browser-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin: 12px 0; }
+.browser-facts .fact { background: var(--panel-alt); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.browser-facts .fact span { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+.browser-facts .fact strong { font-size: 13px; font-weight: 600; word-break: break-all; }
+.browser-facts .fact.ok strong { color: var(--accent); }
+.browser-facts .fact.bad strong { color: var(--danger); }
+.hint-text code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--panel-strong);
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}
+
+.mode-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.mode-option {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  font-size: 13.5px;
+  user-select: none;
+}
+.mode-option:hover { border-color: var(--accent); }
+.mode-option.active {
+  border-color: var(--accent);
+  background: rgba(131, 203, 115, 0.12);
+  color: var(--accent);
+}
+.mode-option input { width: auto; margin: 0; accent-color: var(--accent); }
+.mode-label {
+  color: var(--muted);
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+
+.chat-mode-card {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #23261f;
+}
+.profile-choice { display: grid; gap: 9px; }
+
+/* ------------------------------------------------------------------ table */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td, th { padding: 8px 10px; border-bottom: 1px solid rgba(62, 68, 57, 0.45); text-align: left; }
+th {
+  color: var(--muted);
+  font-weight: 700; font-size: 11.5px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+tr:last-child td { border-bottom: 0; }
+.mono { font-family: Consolas, monospace; font-size: 12px; }
+.ok { color: var(--accent); }
+.bad { color: #ff9c9c; }
+.dim { color: var(--muted); }
+
+.tag-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  background: rgba(131, 203, 115, 0.16); color: var(--accent);
+}
+.tag-pill.warn { background: rgba(217, 183, 77, 0.16); color: var(--warn); }
+.tag-pill.err { background: rgba(211, 106, 106, 0.18); color: #ff9c9c; }
+.tag-pill.gray { background: var(--panel-strong); color: var(--muted); }
+.tag-pill.info { background: rgba(124, 192, 210, 0.16); color: #7cc0d2; }
+
+/* -------------------------------------------------------------- log card */
+.log-card {
+  display: flex; flex-direction: column;
+  min-height: calc(100vh - 300px);
+}
+.log-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.log-tools { display: flex; gap: 8px; }
+.log-tools select { width: auto; padding: 7px 9px; font-size: 12.5px; }
+.log-list {
+  flex: 1;
+  min-height: 280px;
+  overflow: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #191b17;
+}
+.log-row {
+  display: grid;
+  grid-template-columns: 60px 48px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(62, 68, 57, 0.45);
+}
+.log-row:last-child { border-bottom: 0; }
+.log-time { padding-top: 2px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.log-badge {
+  padding: 2px 4px;
+  border-radius: 5px;
+  background: var(--panel-strong);
+  color: var(--muted);
+  font-size: 10px; font-weight: 700;
+  text-align: center;
+}
+.log-in .log-badge { background: rgba(124, 192, 210, 0.16); color: #7cc0d2; }
+.log-out .log-badge { background: rgba(131, 203, 115, 0.16); color: var(--accent); }
+.log-skip .log-badge { background: rgba(217, 183, 77, 0.16); color: var(--warn); }
+.log-error .log-badge { background: rgba(211, 106, 106, 0.18); color: #ff9c9c; }
+.log-reg .log-badge { background: rgba(131, 203, 115, 0.1); color: var(--accent-strong); }
+.log-text { margin: 0; font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.log-out .log-text { color: #dff3d6; }
+
+.proxy-results p {
+  margin: 0.35rem 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 12.5px;
+}
+.proxy-results .proxy-test-pass { color: var(--accent); }
+.proxy-results .proxy-test-fail { color: #ff9c9c; }
+
+[hidden] { display: none !important; }
+
+/* --------------------------------------------------------------- responsive */
+@media (max-width: 1100px) {
+  .home-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .form-grid.three-column { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .shell { flex-direction: column; }
+  .sidebar {
+    position: static; width: auto; height: auto; flex: 0 0 auto;
+    border-right: 0; border-bottom: 1px solid var(--line); gap: 14px;
+  }
+  .subnav { flex-direction: row; flex-wrap: wrap; padding-left: 0; border-left: 0; }
+  .sidebar-footer { display: none; }
+  .main { height: auto; padding: 20px; }
+  .panel-header { flex-direction: column; }
+  .form-grid.two-column { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .home-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">TB</div>
+      <div>
+        <div class="brand-title">Thundr Bot</div>
+        <div class="brand-subtitle">go &middot; single binary</div>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="Main">
+      <button class="nav-button active" type="button">Bot Control</button>
+    </nav>
+
+    <nav class="subnav" aria-label="Sections">
+      <button class="subnav-button active" type="button" data-subpanel="setting">Setting</button>
+      <button class="subnav-button" type="button" data-subpanel="proxy">Proxy</button>
+      <button class="subnav-button" type="button" data-subpanel="message">Message</button>
+      <button class="subnav-button" type="button" data-subpanel="accounts">Accounts &amp; Browser</button>
+      <button class="subnav-button" type="button" data-subpanel="logs">Live Logs</button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-row">
+        <span class="status-label">Bots</span>
+        <span id="running-pill" class="pill stopped">Stopped</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="tab-panel">
+      <header class="panel-header">
+        <div>
+          <div class="title-row">
+            <h1>Bot Control</h1>
+            <span id="run-badge" class="mode-badge idle">Idle</span>
+          </div>
+          <p>Register accounts in a visible browser, then run them as visible browsers or raw websocket workers. Settings apply on bot start.</p>
+        </div>
+        <div class="actions">
+          <button id="refresh" class="secondary-button" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <div class="home-stats" aria-label="Bot status">
+        <div class="stat-capsule"><span>Running</span><strong id="stat-running">0</strong></div>
+        <div class="stat-capsule"><span>Accounts</span><strong id="stat-accounts">0</strong></div>
+        <div class="stat-capsule"><span>Matches</span><strong id="stat-matches">0</strong></div>
+        <div class="stat-capsule"><span>Replies</span><strong id="stat-replies">0</strong></div>
+        <div class="stat-capsule danger"><span>Bots detected</span><strong id="stat-bots">0</strong></div>
+        <div class="stat-capsule"><span>Real users</span><strong id="stat-reals">0</strong></div>
+      </div>
+
+      <!-- ============================== SETTING ============================== -->
+      <section class="subpanel active" data-subpanel="setting">
+        <div class="subpage">
+          <section class="card">
+            <h2>1 &middot; Setting</h2>
+            <p class="hint-text">Pacing, human-behavior delays and toggles. Applied when a bot starts.</p>
+            <h3>General</h3>
+            <div class="form-grid two-column">
+              <label class="checkbox-row"><input type="checkbox" id="set-use_proxy"><span>Use proxy</span></label>
+              <label class="checkbox-row"><input type="checkbox" id="set-human_delay"><span>Human delays</span></label>
+              <label class="checkbox-row"><input type="checkbox" id="set-debug"><span>Debug</span></label>
+              <label class="checkbox-row"><input type="checkbox" id="set-headless"><span>Run headless (no visible window)</span></label>
+            </div>
+            <div class="form-grid two-column">
+              <label><span>Proxy type</span>
+                <select id="set-proxytype">
+                  <option value="http">HTTP</option>
+                  <option value="socks5">SOCKS5</option>
+                  <option value="https">HTTPS (CONNECT)</option>
+                </select>
+              </label>
+            </div>
+            <p class="hint-text">Proxy type applies to both run modes (ws / visible) and to the proxy test. Headless chrome cannot solve hCaptcha &mdash; keep it off for registration.</p>
+            <h3>Pacing</h3>
+            <div class="form-grid two-column">
+              <label><span>Stranger wait (s)</span><input type="number" step="any" min="0" id="set-stranger_wait_time"></label>
+              <label><span>Reply time (s)</span><input type="number" step="any" min="0" id="set-stranger_response_time"></label>
+              <label><span>Skip silent partner after (s)</span><input type="number" step="any" min="0" id="set-partner_no_response_secs"></label>
+              <label><span>Instant-skip window (s)</span><input type="number" step="any" min="0" id="set-instant_skip_secs"></label>
+              <label><span>Search retry (s)</span><input type="number" step="any" min="0" id="set-search_retry_time"></label>
+              <label><span>Work time (s)</span><input type="number" step="any" min="0" id="set-thread_work_time"></label>
+            </div>
+            <h3>Human behavior</h3>
+            <div class="form-grid two-column">
+              <label><span>Type delay (ms/char)</span><input type="number" step="any" min="0" id="set-type_delay_ms"></label>
+              <label><span>Type jitter (ms)</span><input type="number" step="any" min="0" id="set-type_jitter_ms"></label>
+              <label><span>Click delay (ms)</span><input type="number" step="any" min="0" id="set-click_delay_ms"></label>
+              <label><span>Submit delay (ms)</span><input type="number" step="any" min="0" id="set-submit_delay_ms"></label>
+              <label><span>Action delay (ms)</span><input type="number" step="any" min="0" id="set-action_delay_ms"></label>
+            </div>
+            <div class="form-actions inline">
+              <button type="button" id="save-settings" class="primary-button">Save Settings</button>
+              <span id="settings-status" class="status-line" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Interests</h2>
+            <p class="hint-text">Home-page interest box, one per line (interests.txt).</p>
+            <textarea id="f-interests" rows="5" placeholder="music&#10;movies&#10;gaming"></textarea>
+            <div class="form-actions inline">
+              <button type="button" class="primary-button" data-save-file="interests">Save Interests</button>
+              <span id="m-interests" class="status-line" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- =============================== PROXY =============================== -->
+      <section class="subpanel" data-subpanel="proxy">
+        <div class="subpage narrow">
+          <section class="card">
+            <h2>2 &middot; Proxy</h2>
+            <p class="hint-text"><code>host:port:user:pass</code> or <code>host:port</code> — one per line (proxies.txt). The first line is used; enable with <strong>Use proxy</strong> in Setting.</p>
+            <label>
+              <span>Proxy lines</span>
+              <textarea id="f-proxies" rows="6" placeholder="1.2.3.4:8080&#10;1.2.3.5:8080:user:pass"></textarea>
+            </label>
+            <div class="form-actions inline">
+              <button type="button" class="primary-button" data-save-file="proxies">Save Proxies</button>
+              <span id="m-proxies" class="status-line" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Test</h2>
+            <p class="hint-text">Tested live against thundr.com <code>/api/geo</code>.</p>
+            <label><span>Proxy</span><input type="text" id="ptest" placeholder="host:port:user:pass"></label>
+            <div class="form-actions inline">
+              <button type="button" id="test-proxy" class="secondary-button">Test Proxy</button>
+            </div>
+            <p id="presult" class="status-line" role="status" aria-live="polite">Not tested.</p>
+            <div id="proxy-results" class="proxy-results"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ============================== MESSAGE ============================== -->
+      <section class="subpanel" data-subpanel="message">
+        <div class="subpage">
+          <section class="card">
+            <h2>3 &middot; Message</h2>
+            <div class="chat-mode-card">
+              <span class="mode-label">Chat mode</span>
+              <div class="mode-options">
+                <label class="mode-option active" id="mode-option-single">
+                  <input type="radio" name="chat-mode" value="single" id="chat-mode-single" checked>
+                  <span>Single Sequence</span>
+                </label>
+                <label class="mode-option" id="mode-option-folder">
+                  <input type="radio" name="chat-mode" value="folder" id="chat-mode-folder">
+                  <span>Folder Sequences</span>
+                </label>
+                <label class="mode-option" id="mode-option-evachat">
+                  <input type="radio" name="chat-mode" value="eva_chat_flow" id="chat-mode-evachat">
+                  <span>EVAChat Flow</span>
+                </label>
+                <label class="mode-option" id="mode-option-api">
+                  <input type="radio" name="chat-mode" value="api_chat" id="chat-mode-api">
+                  <span>API Chat</span>
+                </label>
+              </div>
+            </div>
+
+            <div id="section-single-mode">
+              <label>
+                <span>Message sequence (msg/chat.txt)</span>
+                <textarea id="f-chat" rows="7" placeholder="hello how are you %username%&#10;ok i am checking. wait a bit."></textarea>
+              </label>
+              <p class="hint-text">One line = one step. <code>%username%</code>, <code>%snap%</code>, <code>%tguser%</code> and <code>{hello|hi}</code> spintax.</p>
+            </div>
+
+            <div id="section-folder-mode" hidden>
+              <div class="form-actions inline">
+                <input type="text" id="folder-path" placeholder="C:\path\to\sequences folder" style="max-width:360px">
+                <button type="button" id="load-folder" class="secondary-button">Load Folder</button>
+                <button type="button" id="clean-loaded" class="danger-button">Clean Loaded</button>
+                <span id="loaded-status" class="status-line">0 sequences loaded</span>
+              </div>
+              <p class="hint-text">Every <code>.txt</code> file in the folder is one sequence; a random one is picked per chat. Restart bots after loading.</p>
+            </div>
+
+            <div id="section-evachat-mode" hidden>
+              <div class="form-actions inline">
+                <button type="button" id="open-eva" class="secondary-button">Open EVAChat Data Folder</button>
+                <span id="eva-status" class="status-line">TXT data is initialized on first run.</span>
+              </div>
+              <p class="hint-text">Pure TXT flow: the reply pools in <code>eva_chat/</code> decide every line (greeting &rarr; chat &rarr; ask snap &rarr; share). No AI is used in this mode — switch to <strong>API Chat</strong> for model-written replies.</p>
+            </div>
+
+            <div id="section-api-mode" hidden>
+              <div class="form-grid two-column">
+                <label><span>API base URL</span><input type="text" id="ai-base-url" placeholder="https://api.featherless.ai/v1"></label>
+                <label><span>Model</span><input type="text" id="ai-model" placeholder="deepseek-ai/DeepSeek-V3-0324"></label>
+                <label><span>API key</span><input type="password" id="ai-api-key" placeholder="provider key (stored locally)"></label>
+                <label><span>Temperature</span><input type="number" id="api-temperature" min="0" max="2" step="0.1"></label>
+                <label><span>Share after N partner messages</span><input type="number" id="api-share-turn" min="1" max="50" step="1"></label>
+              </div>
+              <div class="form-actions inline">
+                <button type="button" id="test-api" class="secondary-button">Test API</button>
+                <button type="button" id="open-api" class="secondary-button">Open API Chat Data Folder</button>
+                <span id="api-status" class="status-line" role="status" aria-live="polite"></span>
+              </div>
+              <p class="hint-text">Every line is written by the model. Persona, share decks and fallback lines live in <code>api_chat/</code>. The app appends the snap/telegram share line itself — the model never writes a username.</p>
+            </div>
+
+            <div class="profile-choice" id="share-platform" role="radiogroup" aria-label="Share platform">
+              <span class="mode-label">Share platform</span>
+              <div class="mode-options">
+                <label class="mode-option active" id="share-platform-option-snap">
+                  <input type="radio" name="share-platform-choice" value="snap" id="share-platform-snap" checked>
+                  <span>Snap</span>
+                </label>
+                <label class="mode-option" id="share-platform-option-tg">
+                  <input type="radio" name="share-platform-choice" value="tg" id="share-platform-tg">
+                  <span>Telegram</span>
+                </label>
+                <label class="mode-option" id="share-platform-option-both">
+                  <input type="radio" name="share-platform-choice" value="both" id="share-platform-both">
+                  <span>Snap + Telegram</span>
+                </label>
+              </div>
+            </div>
+            <label>
+              <span>Snap usernames (snaps.txt)</span>
+              <textarea id="f-snaps" rows="3" placeholder="@snap_user_one"></textarea>
+            </label>
+            <label>
+              <span>Telegram usernames (telegram.txt)</span>
+              <textarea id="f-telegram" rows="3" placeholder="telegram_user_two"></textarea>
+            </label>
+            <p class="hint-text"><code>%username%</code> inserts one random handle from the selected platform. Each chat gets one assigned handle, and a line is never repeated inside one chat.</p>
+            <div class="form-actions inline">
+              <button type="button" id="save-message" class="primary-button">Save Message Mode</button>
+              <span id="message-save-status" class="status-line" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ============================== ACCOUNTS ============================= -->
+      <section class="subpanel" data-subpanel="accounts">
+        <div class="subpage">
+          <section class="card">
+            <h2>4 &middot; Register</h2>
+            <p class="hint-text">Opens a visible browser and registers accounts automatically.</p>
+            <div class="form-actions inline">
+              <input type="number" id="rcount" value="1" min="1" max="20" style="width:90px">
+              <button type="button" id="regbtn" class="primary-button">Register Accounts</button>
+              <button type="button" id="browserbtn" class="secondary-button" title="Open the register browser manually">&#128421; Open Browser</button>
+              <span id="rmsg" class="status-line" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Browser</h2>
+            <p class="hint-text">Chrome + DevTools status. Every launch tries the watcher task first, then a direct launch, so one missing piece never blocks the other.</p>
+            <div id="browser-status" class="browser-facts"></div>
+            <div class="form-actions inline">
+              <button type="button" id="browser-check" class="secondary-button">Check Browser</button>
+              <button type="button" id="browser-open-reg" class="secondary-button">Open Register Browser</button>
+              <button type="button" id="browser-open-login" class="secondary-button">Open Login (selected)</button>
+              <button type="button" id="browser-close" class="danger-button">Close Browsers</button>
+              <span id="browser-msg" class="status-line" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Accounts</h2>
+            <div id="acctable"></div>
+            <h3>Run mode</h3>
+            <div class="mode-options" role="radiogroup" aria-label="Run mode">
+              <label class="mode-option active" id="mode-option-visible">
+                <input type="radio" name="run-mode" value="visible" checked>
+                <span>Visible browser</span>
+              </label>
+              <label class="mode-option" id="mode-option-ws">
+                <input type="radio" name="run-mode" value="ws">
+                <span>Raw websocket</span>
+              </label>
+            </div>
+            <div class="form-actions inline">
+              <button type="button" id="start-bots" class="primary-button">Start Selected Bots</button>
+              <button type="button" id="stop-bots" class="danger-button">Stop All Bots</button>
+              <span id="bmsg" class="status-line" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Bot Status</h2>
+            <div id="botstatus"></div>
+            <p id="botstatus-empty" class="hint-text">No bots running yet. Select accounts and press Start.</p>
+          </section>
+        </div>
+      </section>
+
+      <!-- ================================ LOGS =============================== -->
+      <section class="subpanel" data-subpanel="logs">
+        <div class="subpage">
+          <section class="card log-card">
+            <div class="log-header">
+              <h2>5 &middot; Live Logs</h2>
+              <div class="log-tools">
+                <select id="log-filter" aria-label="Filter live logs">
+                  <option value="all">All</option>
+                  <option value="in">Matches</option>
+                  <option value="out">Replies</option>
+                  <option value="skip">Skips</option>
+                  <option value="reg">Register</option>
+                  <option value="error">Errors</option>
+                </select>
+                <button type="button" id="log-clear" class="secondary-button">Clear</button>
+              </div>
+            </div>
+            <div id="log-list" class="log-list" aria-live="polite"></div>
+            <p id="log-empty" class="hint-text">No activity yet. Start a bot or registration.</p>
+          </section>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+
+const SETTINGS_KEYS = [
+  "use_proxy", "proxytype", "debug", "human_delay", "headless",
+  "stranger_wait_time", "stranger_response_time", "partner_no_response_secs",
+  "instant_skip_secs", "search_retry_time", "thread_work_time",
+  "type_delay_ms", "type_jitter_ms", "click_delay_ms", "submit_delay_ms", "action_delay_ms",
+];
+const BOOL_KEYS = new Set(["use_proxy", "debug", "human_delay", "headless"]);
+const FILES = ["interests", "proxies", "chat", "snaps", "telegram"];
+
+let STATE = {};
+const selected = new Set();       // checked account uids, survives re-render
+let logClearedAt = 0;             // number of log lines hidden by Clear
+let lastLogText = "";
+
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+async function api(path, body) {
+  const r = await fetch("/api/" + path, body !== undefined
+    ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
+    : undefined);
+  return r.json();
+}
+
+function setStatus(id, message, kind) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("status-error", kind === "error");
+  el.classList.toggle("status-ok", kind === "ok");
+}
+
+// ------------------------------------------------------------ sub-navigation
+document.querySelectorAll(".subnav-button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".subnav-button").forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".subpanel").forEach((p) => p.classList.toggle("active", p.dataset.subpanel === btn.dataset.subpanel));
+    if (btn.dataset.subpanel === "logs") scrollLogsToBottom(true);
+    if (btn.dataset.subpanel === "accounts") refreshBrowser();
+  });
+});
+
+// mode-option pill highlight follows the radio inside it
+document.querySelectorAll(".mode-option input").forEach((radio) => {
+  radio.addEventListener("change", () => {
+    document.querySelectorAll(`.mode-option input[name="${radio.name}"]`).forEach((r) => {
+      r.closest(".mode-option").classList.toggle("active", r.checked);
+    });
+  });
+});
+
+// ------------------------------------------------------------------- render
+function render() {
+  const bots = STATE.bots || {};
+  const running = !!bots.running;
+
+  const pill = $("running-pill");
+  pill.textContent = running ? "Running" : "Stopped";
+  pill.className = "pill " + (running ? "running" : "stopped");
+
+  const badge = $("run-badge");
+  badge.textContent = running ? (bots.message || "Running") : "Idle";
+  badge.className = "mode-badge" + (running ? "" : " idle");
+
+  // registration
+  const reg = STATE.register || {};
+  setStatus("rmsg", reg.running ? "\u23F3 " + (reg.message || "working...") : (reg.message || ""), reg.done ? "ok" : undefined);
+  $("regbtn").disabled = !!reg.running;
+  setStatus("bmsg", bots.message || "");
+
+  // stat capsules
+  const statuses = STATE.bot_status || {};
+  const list = Object.values(statuses);
+  const sum = (k) => list.reduce((n, s) => n + (s[k] || 0), 0);
+  $("stat-running").textContent = list.length;
+  $("stat-accounts").textContent = (STATE.accounts || []).length;
+  $("stat-matches").textContent = sum("matches");
+  $("stat-replies").textContent = sum("replies");
+  $("stat-bots").textContent = sum("bots");
+  $("stat-reals").textContent = sum("reals");
+
+  renderAccounts();
+  renderBotStatus(statuses);
+}
+
+function renderAccounts() {
+  const accs = STATE.accounts || [];
+  if (!accs.length) {
+    $("acctable").innerHTML = '<p class="hint-text">No accounts yet. Register some above.</p>';
+    return;
+  }
+  let h = '<table><tr><th></th><th>User</th><th>UID</th><th>Session</th><th></th></tr>';
+  for (const a of accs) {
+    const uid = esc(a.user_id);
+    const checked = selected.has(a.user_id) ? " checked" : "";
+    const sess = a.has_session ? '<span class="tag-pill">yes</span>' : '<span class="tag-pill err">no</span>';
+    h += `<tr>
+      <td><input type="checkbox" class="asel" value="${uid}"${checked} style="width:auto;accent-color:var(--accent)"></td>
+      <td>${esc(a.email)}</td>
+      <td class="mono dim">${esc(a.user_id.slice(0, 8))}</td>
+      <td>${sess}</td>
+      <td><button type="button" class="danger-button small-button" data-del="${uid}">Delete</button></td>
+    </tr>`;
+  }
+  $("acctable").innerHTML = h + "</table>";
+
+  document.querySelectorAll(".asel").forEach((c) => {
+    c.addEventListener("change", () => c.checked ? selected.add(c.value) : selected.delete(c.value));
+  });
+  document.querySelectorAll("[data-del]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      if (!confirm("Delete account " + b.dataset.del.slice(0, 8) + "?")) return;
+      selected.delete(b.dataset.del);
+      await api("accounts/delete", { user_id: b.dataset.del });
+      refresh();
+    });
+  });
+}
+
+function renderBotStatus(statuses) {
+  const entries = Object.entries(statuses);
+  $("botstatus-empty").hidden = entries.length > 0;
+  if (!entries.length) { $("botstatus").innerHTML = ""; return; }
+  let h = '<table><tr><th>Bot</th><th>State</th><th>Matches</th><th>Replies</th><th>Line</th><th>Bots</th><th>Real</th><th>?</th><th>Last event</th><th>Updated</th></tr>';
+  for (const [uid, s] of entries) {
+    const cls = s.state === "running" ? "" : s.state === "error" ? "err" : s.state === "starting" ? "warn" : "gray";
+    h += `<tr>
+      <td class="mono">${esc(s.tag || uid.slice(0, 8))}</td>
+      <td><span class="tag-pill ${cls}">${esc(s.state || "?")}</span></td>
+      <td>${s.matches || 0}</td><td>${s.replies || 0}</td><td>${s.line || 0}</td>
+      <td class="bad">${s.bots || 0}</td><td class="ok">${s.reals || 0}</td><td class="dim">${s.unknown || 0}</td>
+      <td class="dim">${esc(s.last_event || "")}</td>
+      <td class="dim mono">${esc(s.updated || "")}</td>
+    </tr>`;
+  }
+  $("botstatus").innerHTML = h + "</table>";
+}
+
+// --------------------------------------------------------------------- logs
+function classify(line) {
+  const l = line.toLowerCase();
+  if (l.includes("error") || l.includes("fail") || l.includes("ban")) return "error";
+  if (l.includes("[register]")) return "reg";
+  if (l.includes("skip") || l.includes("left") || l.includes("closed") || l.includes("disconnected")) return "skip";
+  if (l.includes("send") || l.includes("reply") || l.includes("line ") || l.includes("typing")) return "out";
+  if (l.includes("match") || l.includes("join") || l.includes("room") || l.includes("found") || l.includes("partner")) return "in";
+  return "sys";
+}
+const BADGE = { error: "ERR", reg: "REG", skip: "SKIP", out: "OUT", in: "IN", sys: "SYS" };
+
+function renderLogs(text) {
+  const lines = text ? text.replace(/\r\n/g, "\n").split("\n").filter((l) => l.trim() !== "") : [];
+  const visible = lines.slice(Math.min(logClearedAt, lines.length));
+  const filter = $("log-filter").value;
+  $("log-empty").hidden = visible.length > 0;
+
+  const list = $("log-list");
+  const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 40;
+  let h = "";
+  for (const line of visible) {
+    const kind = classify(line);
+    if (filter !== "all" && kind !== filter) continue;
+    const m = line.match(/^(\d{2}:\d{2}:\d{2})\s+(.*)$/);
+    const time = m ? m[1] : "";
+    const text2 = m ? m[2] : line;
+    h += `<div class="log-row log-${kind}"><span class="log-time">${esc(time)}</span><span class="log-badge">${BADGE[kind]}</span><p class="log-text">${esc(text2)}</p></div>`;
+  }
+  list.innerHTML = h;
+  if (nearBottom) scrollLogsToBottom(false);
+}
+
+function scrollLogsToBottom() {
+  const list = $("log-list");
+  list.scrollTop = list.scrollHeight;
+}
+
+async function refreshLogs() {
+  try {
+    const r = await api("logs");
+    if (r.content !== lastLogText) {
+      lastLogText = r.content || "";
+      renderLogs(lastLogText);
+    }
+  } catch (e) { /* dashboard offline */ }
+}
+
+$("log-clear").addEventListener("click", () => {
+  const lines = lastLogText ? lastLogText.split("\n").filter((l) => l.trim() !== "") : [];
+  logClearedAt = lines.length;
+  renderLogs(lastLogText);
+});
+$("log-filter").addEventListener("change", () => renderLogs(lastLogText));
+
+// ------------------------------------------------------------------ actions
+$("save-settings").addEventListener("click", async () => {
+  const body = {};
+  for (const k of SETTINGS_KEYS) {
+    const el = $("set-" + k);
+    if (!el) continue;
+    body[k] = BOOL_KEYS.has(k) ? String(!!el.checked) : el.value;
+  }
+  // "proxytype" is the legacy key; the canonical one (also written by the
+  // desktop UI) is proxy_scheme, so both stay in sync.
+  if (body.proxytype) body.proxy_scheme = body.proxytype;
+  const r = await api("settings", body);
+  setStatus("settings-status", r.ok ? "saved \u2713" : (r.error || "save failed"), r.ok ? "ok" : "error");
+  setTimeout(() => setStatus("settings-status", ""), 3000);
+});
+
+document.querySelectorAll("[data-save-file]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const name = btn.dataset.saveFile;
+    const r = await api("file/save", { name, content: $("f-" + name).value });
+    setStatus("m-" + name, r.ok ? "saved \u2713" : (r.error || "save failed"), r.ok ? "ok" : "error");
+    setTimeout(() => setStatus("m-" + name, ""), 3000);
+  });
+});
+
+// ------------------------------------------------------------- message modes
+const CHAT_MODE_SECTIONS = {
+  single: "section-single-mode",
+  folder: "section-folder-mode",
+  eva_chat_flow: "section-evachat-mode",
+  api_chat: "section-api-mode",
+};
+
+function chatMode() {
+  const r = document.querySelector('input[name="chat-mode"]:checked');
+  return r ? r.value : "single";
+}
+
+function sharePlatform() {
+  const r = document.querySelector('input[name="share-platform-choice"]:checked');
+  return r ? r.value : "snap";
+}
+
+function showChatModeSection(mode) {
+  for (const [m, id] of Object.entries(CHAT_MODE_SECTIONS)) {
+    $(id).hidden = m !== mode;
+  }
+}
+
+document.querySelectorAll('input[name="chat-mode"]').forEach((r) => {
+  r.addEventListener("change", () => showChatModeSection(r.value));
+});
+
+async function loadMessageSettings() {
+  try {
+    const r = await api("message/get");
+    const s = r.settings || {};
+    const mode = CHAT_MODE_SECTIONS[s.chat_mode] ? s.chat_mode : "single";
+    const modeRadio = document.querySelector(`input[name="chat-mode"][value="${mode}"]`);
+    if (modeRadio) {
+      modeRadio.checked = true;
+      modeRadio.dispatchEvent(new Event("change"));
+    }
+    const pf = document.querySelector(`input[name="share-platform-choice"][value="${s.share_platform || "snap"}"]`);
+    if (pf) { pf.checked = true; pf.dispatchEvent(new Event("change")); }
+    $("folder-path").value = s.folder_path || "";
+    $("ai-base-url").value = s.ai_base_url || "";
+    $("ai-model").value = s.ai_model || "";
+    $("ai-api-key").value = s.ai_api_key || "";
+    $("api-temperature").value = s.api_temperature ?? 0.9;
+    $("api-share-turn").value = s.api_share_turn ?? 4;
+    $("loaded-status").textContent = (r.sequences_loaded || 0) + " sequences loaded";
+    showChatModeSection(mode);
+  } catch (e) { /* ignore */ }
+}
+
+$("save-message").addEventListener("click", async () => {
+  // Save Message Mode saves everything message-related, like ChitChat:
+  // chat.txt sequence + snap/telegram handle lists + the mode settings.
+  for (const name of ["chat", "snaps", "telegram"]) {
+    await api("file/save", { name, content: $("f-" + name).value });
+  }
+  const body = {
+    chat_mode: chatMode(),
+    share_platform: sharePlatform(),
+    folder_path: $("folder-path").value.trim(),
+    ai_base_url: $("ai-base-url").value.trim(),
+    ai_api_key: $("ai-api-key").value.trim(),
+    ai_model: $("ai-model").value.trim(),
+    api_temperature: Number($("api-temperature").value) || 0.9,
+    api_share_turn: Math.max(1, Number($("api-share-turn").value) || 4),
+  };
+  const r = await api("message/save", body);
+  setStatus("message-save-status", r.ok ? "saved \u2713 (applies on bot start)" : (r.error || "save failed"), r.ok ? "ok" : "error");
+  setTimeout(() => setStatus("message-save-status", ""), 4000);
+});
+
+$("load-folder").addEventListener("click", async () => {
+  const path = $("folder-path").value.trim();
+  if (!path) { setStatus("loaded-status", "enter a folder path first", "error"); return; }
+  setStatus("loaded-status", "loading...");
+  const r = await api("sequences/load", { path });
+  setStatus("loaded-status", r.ok ? `${r.count} sequences loaded` : (r.error || "load failed"), r.ok ? "ok" : "error");
+});
+
+$("clean-loaded").addEventListener("click", async () => {
+  await api("sequences/clean", {});
+  setStatus("loaded-status", "0 sequences loaded");
+});
+
+$("open-eva").addEventListener("click", async () => {
+  const r = await api("open-folder", { which: "eva" });
+  setStatus("eva-status", r.ok ? ("opened " + r.path) : (r.error || "failed"), r.ok ? "ok" : "error");
+});
+
+$("open-api").addEventListener("click", async () => {
+  const r = await api("open-folder", { which: "api" });
+  setStatus("api-status", r.ok ? ("opened " + r.path) : (r.error || "failed"), r.ok ? "ok" : "error");
+});
+
+$("test-api").addEventListener("click", async () => {
+  const btn = $("test-api");
+  btn.disabled = true;
+  setStatus("api-status", "testing API...");
+  try {
+    const r = await api("apichat/test", {
+      base_url: $("ai-base-url").value.trim(),
+      api_key: $("ai-api-key").value.trim(),
+      model: $("ai-model").value.trim(),
+      temperature: Number($("api-temperature").value) || 0.9,
+    });
+    setStatus("api-status", r.ok ? `OK ${r.ms}ms \u2014 "${r.reply}"` : (r.error || "test failed"), r.ok ? "ok" : "error");
+  } catch (e) {
+    setStatus("api-status", "test failed", "error");
+  }
+  btn.disabled = false;
+});
+
+$("test-proxy").addEventListener("click", async () => {
+  const btn = $("test-proxy");
+  btn.disabled = true;
+  setStatus("presult", "testing...");
+  $("proxy-results").innerHTML = "";
+  try {
+    const r = await api("proxy/test", { proxy: $("ptest").value.trim() });
+    if (r.ok) {
+      setStatus("presult", "OK", "ok");
+      $("proxy-results").innerHTML = `<p class="proxy-test-pass">PASS &middot; ${r.ms}ms &middot; HTTP ${r.status}</p><p class="dim">${esc(r.body || "")}</p>`;
+    } else {
+      setStatus("presult", "FAIL", "error");
+      $("proxy-results").innerHTML = `<p class="proxy-test-fail">FAIL &middot; ${esc(r.error || ("HTTP " + r.status))}</p>`;
+    }
+  } catch (e) {
+    setStatus("presult", "FAIL", "error");
+  }
+  btn.disabled = false;
+});
+
+$("regbtn").addEventListener("click", async () => {
+  const count = Math.max(1, Math.min(20, Number($("rcount").value) || 1));
+  await api("register", { count });
+  refresh();
+});
+
+$("browserbtn").addEventListener("click", async () => {
+  setStatus("rmsg", "opening browser...", "");
+  const r = await api("chrome/open", { target: "register" });
+  setStatus("rmsg", r.ok ? "browser attached (debug port up)" : ("browser not reachable: " + (r.error || "see logs")), r.ok ? "ok" : "error");
+});
+
+$("start-bots").addEventListener("click", async () => {
+  const mode = document.querySelector('input[name="run-mode"]:checked').value;
+  const r = await api("bots/start", { uids: [...selected], mode });
+  setStatus("bmsg", r.message || "", r.ok ? "ok" : "error");
+  refresh();
+});
+
+$("stop-bots").addEventListener("click", async () => {
+  const r = await api("bots/stop", {});
+  setStatus("bmsg", r.message || "", r.ok ? "ok" : "error");
+  refresh();
+});
+
+// ------------------------------------------------------- browser diagnostics
+// Everything the operator needs to know why a browser window did or did not
+// open: chrome binary, watcher task, watcher script, the three debug ports.
+function fact(label, value, ok) {
+  const cls = ok === true ? "fact ok" : ok === false ? "fact bad" : "fact";
+  return `<div class="${cls}"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+}
+
+function renderBrowser(b) {
+  const box = $("browser-status");
+  if (!box) return;
+  const taskLabel = b.watcher_task === "installed"
+    ? "installed \u00b7 " + (b.watcher_running ? "running" : "stopped")
+    : b.watcher_task;
+  box.innerHTML = [
+    fact("Chrome", b.chrome_found ? b.chrome_exe : "not installed", b.chrome_found),
+    fact("Watcher task", taskLabel, b.watcher_running === true),
+    fact("Watcher script", b.watcher_present ? "tools\\chrome-watcher.ps1" : "missing", b.watcher_present),
+    fact("Attach port", `${b.attach_url || "-"} \u00b7 ${b.attach_up ? "up" : "down"}`, b.attach_up),
+    fact("Register port", `${b.register_url} \u00b7 ${b.register_up ? "up" : "down"}`, b.register_up),
+    fact("Login port", `${b.manual_url} \u00b7 ${b.manual_up ? "up" : "down"}`, b.manual_up),
+    fact("Run mode", (b.mode || "visible") + (b.headless ? " \u00b7 headless" : ""), null),
+    fact("Proxy scheme", b.proxy_scheme || "http", null),
+    fact("Profiles", String(b.profiles || 0), null),
+  ].join("");
+  if (b.problem) setStatus("browser-msg", b.problem, "error");
+}
+
+async function refreshBrowser() {
+  try {
+    const b = await api("browser/status");
+    renderBrowser(b);
+    if (!b.chrome_found) setStatus("browser-msg", "chrome not found - install Chrome first", "error");
+  } catch (e) {
+    setStatus("browser-msg", "browser status unavailable", "error");
+  }
+}
+
+$("browser-check").addEventListener("click", async () => {
+  setStatus("browser-msg", "checking...");
+  await refreshBrowser();
+  setStatus("browser-msg", "checked", "ok");
+});
+
+$("browser-open-reg").addEventListener("click", async () => {
+  setStatus("browser-msg", "opening register browser...");
+  const r = await api("chrome/open", { target: "register" });
+  setStatus("browser-msg", r.message || (r.ok ? "register browser up" : "not reachable - see live logs"), r.ok ? "ok" : "error");
+  refreshBrowser();
+});
+
+$("browser-open-login").addEventListener("click", async () => {
+  const uid = [...selected][0];
+  if (!uid) { setStatus("browser-msg", "select an account row first", "error"); return; }
+  setStatus("browser-msg", "opening login browser for " + uid.slice(0, 8) + "...");
+  const r = await api("chrome/open", { target: "bot", uid });
+  setStatus("browser-msg", r.message || (r.ok ? "login browser up (log in by hand, then Start)" : "not reachable - see live logs"), r.ok ? "ok" : "error");
+  refreshBrowser();
+});
+
+$("browser-close").addEventListener("click", async () => {
+  await api("browser/close", {});
+  setStatus("browser-msg", "browsers closed", "ok");
+  refreshBrowser();
+});
+
+$("refresh").addEventListener("click", refresh);
+
+// -------------------------------------------------------------------- poll
+async function refresh() {
+  try {
+    STATE = await api("state");
+    fillForms();
+    render();
+  } catch (e) { /* dashboard offline */ }
+}
+
+let formsFilled = false;
+function fillForms() {
+  const s = STATE.settings || {};
+  for (const k of SETTINGS_KEYS) {
+    const el = $("set-" + k);
+    if (!el || el === document.activeElement) continue;
+    if (!formsFilled) {
+      if (BOOL_KEYS.has(k)) el.checked = ["1", "true", "yes", "on"].includes(String(s[k] || "").toLowerCase());
+      else if (k === "proxytype") el.value = s.proxy_scheme || s.proxytype || "http";
+      else el.value = s[k] || "";
+    }
+  }
+  if (!formsFilled) {
+    // the run-mode radio follows the saved bot_mode, which is the same
+    // setting the desktop UI's StartRun() reads
+    const mode = s.bot_mode === "ws" ? "ws" : "visible";
+    const radio = document.querySelector(`input[name="run-mode"][value="${mode}"]`);
+    if (radio) {
+      radio.checked = true;
+      radio.dispatchEvent(new Event("change"));
+    }
+  }
+  formsFilled = true;
+}
+
+async function loadFiles() {
+  for (const name of FILES) {
+    try {
+      const r = await api("file/get", { name });
+      $("f-" + name).value = r.content || "";
+    } catch (e) { /* ignore */ }
+  }
+}
+
+loadFiles();
+loadMessageSettings();
+refresh();
+refreshLogs();
+refreshBrowser();
+setInterval(refresh, 2000);
+setInterval(refreshLogs, 3000);
+</script>
+</body>
+</html>

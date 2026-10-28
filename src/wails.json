@@ -1,0 +1,12 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Thundr Bot",
+  "outputfilename": "thundr-bot",
+  "frontend:dir": "frontend",
+  "wailsjsdir": "frontend",
+  "assetdir": "frontend/dist",
+  "author": {
+    "name": "",
+    "email": ""
+  }
+}
