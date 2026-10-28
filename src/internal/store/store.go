@@ -11,6 +11,7 @@ package store
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -52,13 +53,21 @@ func (s *Store) ReadJSON(name string, v any) bool {
 
 // WriteJSON marshals v into a JSON file in the data directory.
 func (s *Store) WriteJSON(name string, v any) bool {
+	return s.WriteJSONChecked(name, v) == nil
+}
+
+// WriteJSONChecked is WriteJSON with the underlying error preserved for UI paths.
+func (s *Store) WriteJSONChecked(name string, v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return false
+		return fmt.Errorf("marshal %s: %w", name, err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return writeFileAtomic(s.path(name), data, 0o644) == nil
+	if err := writeFileAtomic(s.path(name), data, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", name, err)
+	}
+	return nil
 }
 
 // ---- settings ---------------------------------------------------------------
@@ -87,7 +96,7 @@ func (s *Store) settingsLocked() map[string]string {
 	return out
 }
 
-func (s *Store) SaveSettings(updates map[string]string) {
+func (s *Store) SaveSettings(updates map[string]string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var lines []string
@@ -113,7 +122,10 @@ func (s *Store) SaveSettings(updates map[string]string) {
 			out = append(out, k+"="+v)
 		}
 	}
-	_ = writeFileAtomic(s.path("settings.txt"), []byte(strings.Join(out, "\n")), 0o644)
+	if err := writeFileAtomic(s.path("settings.txt"), []byte(strings.Join(out, "\n")), 0o644); err != nil {
+		return fmt.Errorf("write settings.txt: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) Get(key, def string) string {
@@ -305,13 +317,21 @@ func (s *Store) ReadFile(name string) string {
 }
 
 func (s *Store) WriteFile(name, content string) bool {
+	return s.WriteFileChecked(name, content) == nil
+}
+
+// WriteFileChecked is WriteFile with the underlying error preserved for UI paths.
+func (s *Store) WriteFileChecked(name, content string) error {
 	rel, ok := EditableFiles[name]
 	if !ok {
-		return false
+		return fmt.Errorf("unknown editable file %q", name)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return writeFileAtomic(s.path(rel), []byte(content), 0o644) == nil
+	if err := writeFileAtomic(s.path(rel), []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", rel, err)
+	}
+	return nil
 }
 
 // LoadList reads a # -commented list file (used for snaps/telegram/interests).

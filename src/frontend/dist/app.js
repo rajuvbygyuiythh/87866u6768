@@ -439,8 +439,10 @@ async function saveSection(section, values, statusId) {
     if (snapshot) applySnapshot(snapshot);
     setStatus(statusId, "Saved.", "ok");
     toast(`${section} saved.`);
+    return true;
   } catch (error) {
     setStatus(statusId, error.message || String(error), "error");
+    return false;
   }
 }
 // ---------------------------------------------------------------------------
@@ -753,7 +755,8 @@ function bindActions() {
   on("msg-save", async () => {
     const credentials = readCredentials();
     const actions = readActions();
-    await saveSection("credentials", credentials, "msg-status");
+    const credentialsSaved = await saveSection("credentials", credentials, "msg-status");
+    if (!credentialsSaved) return;
     await saveSection("actions", actions, "msg-status");
   });
   on("msg-load-folder", loadFolder);

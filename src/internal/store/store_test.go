@@ -239,3 +239,36 @@ func TestStoreJSONListAndSessionRoundTrip(t *testing.T) {
 		t.Fatalf("session round trip failed: %q ok=%v", raw, ok)
 	}
 }
+
+func TestSaveSettingsReturnsWriteError(t *testing.T) {
+	st := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(st.Dir, "settings.txt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SaveSettings(map[string]string{"mode": "ws"}); err == nil {
+		t.Fatal("expected SaveSettings to report a write error")
+	}
+}
+
+func TestWriteFileCheckedReportsUnknownAndWriteErrors(t *testing.T) {
+	st := Open(t.TempDir())
+	if err := st.WriteFileChecked("missing", "x"); err == nil {
+		t.Fatal("expected unknown editable file error")
+	}
+	if err := os.MkdirAll(filepath.Join(st.Dir, "msg", "chat.txt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WriteFileChecked("chat", "hello"); err == nil {
+		t.Fatal("expected chat write error")
+	}
+}
+
+func TestWriteJSONCheckedReportsWriteError(t *testing.T) {
+	st := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(st.Dir, "message_settings.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.WriteJSONChecked("message_settings.json", map[string]any{"mode": "single"}); err == nil {
+		t.Fatal("expected message settings write error")
+	}
+}

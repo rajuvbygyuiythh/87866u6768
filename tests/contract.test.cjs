@@ -398,3 +398,18 @@ test("legacy settings polling preserves dirty fields and clears them after save"
   assert.match(legacyHtml, /bindSettingsDirtyTracking\(\);/);
   assert.match(legacyHtml, /applyingServerSettings/);
 });
+
+test("desktop saveSection reports success/failure and message save stops after a failed section", () => {
+  assert.match(appJs, /async function saveSection\(section, values, statusId\)/);
+  assert.match(appJs, /toast\(`\$\{section\} saved\.`\);\s*return true;/);
+  assert.match(appJs, /setStatus\(statusId, error\.message \|\| String\(error\), "error"\);\s*return false;/);
+  assert.match(appJs, /const credentialsSaved = await saveSection\("credentials", credentials, "msg-status"\);/);
+  assert.match(appJs, /if \(!credentialsSaved\) return;/);
+});
+
+test("legacy message save checks each file write before saving mode settings", () => {
+  assert.match(legacyHtml, /const fr = await api\("file\/save", \{ name, content: \$\("f-" \+ name\)\.value \}\);/);
+  assert.match(legacyHtml, /if \(!fr \|\| fr\.ok === false\) throw new Error/);
+  assert.match(legacyHtml, /if \(!r \|\| r\.ok === false\) throw new Error/);
+  assert.match(legacyHtml, /setStatus\("message-save-status", e\.message \|\| "save failed", "error"\);/);
+});

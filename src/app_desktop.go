@@ -72,13 +72,19 @@ func (d *DesktopApp) GetFile(name string) map[string]any {
 }
 
 func (d *DesktopApp) SaveFile(name, content string) map[string]any {
-	return map[string]any{"ok": d.dapp.Store().WriteFile(name, content)}
+	if err := d.dapp.Store().WriteFileChecked(name, content); err != nil {
+		return map[string]any{"ok": false, "error": err.Error()}
+	}
+	return map[string]any{"ok": true}
 }
 
 func (d *DesktopApp) GetMessageSettings() map[string]any { return d.dapp.GetMessageSettings() }
 
 func (d *DesktopApp) SaveMessageSettings(s reply.Settings) map[string]any {
-	return map[string]any{"ok": d.dapp.SaveMessageSettings(s)}
+	if err := d.dapp.SaveMessageSettings(s); err != nil {
+		return map[string]any{"ok": false, "error": err.Error()}
+	}
+	return map[string]any{"ok": true}
 }
 
 // LoadMessageFolder loads sequences from the payload's folder path and

@@ -375,6 +375,110 @@
         "cd src && go build ./...",
         "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
       ]
+    },
+    "write-error-propagation": {
+      "description": "Step C: propagate disk write errors through store, dashboard contract, legacy HTTP routes, and desktop/legacy UI save flows. Source and tests only; no runtime data.",
+      "keywords": [
+        "write",
+        "error",
+        "save",
+        "settings",
+        "file",
+        "message",
+        "propagate",
+        "status",
+        "failure"
+      ],
+      "files": [
+        {
+          "path": "src/internal/store/store.go",
+          "role": "Checked write APIs and SaveSettings error return",
+          "editable": true,
+          "anchors": [
+            "func (s *Store) SaveSettings(",
+            "func (s *Store) WriteFileChecked(",
+            "func (s *Store) WriteJSONChecked("
+          ]
+        },
+        {
+          "path": "src/internal/store/store_test.go",
+          "role": "Store write-error regression tests",
+          "editable": true,
+          "anchors": [
+            "TestSaveSettingsReturnsWriteError",
+            "TestWriteFileCheckedReportsUnknownAndWriteErrors"
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract.go",
+          "role": "SaveSection/updateReplySettings propagate write failures",
+          "editable": true,
+          "anchors": [
+            "func (a *App) SaveSection(",
+            "func (a *App) updateReplySettings("
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract_test.go",
+          "role": "Contract and legacy route write-failure tests",
+          "editable": true,
+          "anchors": [
+            "TestSaveSectionSetupWriteFailureReturnsError",
+            "TestLegacySettingsRouteReportsWriteFailure"
+          ]
+        },
+        {
+          "path": "src/internal/dash/dash.go",
+          "role": "Legacy settings/file/message routes and desktop wrappers return write errors",
+          "editable": true,
+          "anchors": [
+            "POST /api/settings",
+            "POST /api/file/save",
+            "func (a *App) SaveMessageSettings("
+          ]
+        },
+        {
+          "path": "src/app_desktop.go",
+          "role": "Desktop SaveFile/SaveMessageSettings return ok/error",
+          "editable": true,
+          "anchors": [
+            "func (d *DesktopApp) SaveFile(",
+            "func (d *DesktopApp) SaveMessageSettings("
+          ]
+        },
+        {
+          "path": "src/frontend/dist/app.js",
+          "role": "saveSection success/failure result; message save stops after failure",
+          "editable": true,
+          "anchors": [
+            "async function saveSection(",
+            "const credentialsSaved = await saveSection("
+          ]
+        },
+        {
+          "path": "src/internal/dash/index.html",
+          "role": "Legacy file/message save handlers surface write errors",
+          "editable": true,
+          "anchors": [
+            "data-save-file",
+            "save-message"
+          ]
+        },
+        {
+          "path": "tests/contract.test.cjs",
+          "role": "UI save failure propagation source tests",
+          "editable": true,
+          "anchors": [
+            "desktop saveSection reports success/failure",
+            "legacy message save checks each file write"
+          ]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./internal/store ./internal/dash",
+        "node --check src/frontend/dist/app.js",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
+      ]
     }
   }
 }

@@ -962,8 +962,13 @@ $("save-settings").addEventListener("click", async () => {
 document.querySelectorAll("[data-save-file]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const name = btn.dataset.saveFile;
-    const r = await api("file/save", { name, content: $("f-" + name).value });
-    setStatus("m-" + name, r.ok ? "saved \u2713" : (r.error || "save failed"), r.ok ? "ok" : "error");
+    try {
+      const r = await api("file/save", { name, content: $("f-" + name).value });
+      if (!r || r.ok === false) throw new Error((r && r.error) || "save failed");
+      setStatus("m-" + name, "saved \u2713", "ok");
+    } catch (e) {
+      setStatus("m-" + name, e.message || "save failed", "error");
+    }
     setTimeout(() => setStatus("m-" + name, ""), 3000);
   });
 });
@@ -1022,21 +1027,27 @@ async function loadMessageSettings() {
 $("save-message").addEventListener("click", async () => {
   // Save Message Mode saves everything message-related, like ChitChat:
   // chat.txt sequence + snap/telegram handle lists + the mode settings.
-  for (const name of ["chat", "snaps", "telegram"]) {
-    await api("file/save", { name, content: $("f-" + name).value });
+  try {
+    for (const name of ["chat", "snaps", "telegram"]) {
+      const fr = await api("file/save", { name, content: $("f-" + name).value });
+      if (!fr || fr.ok === false) throw new Error((fr && fr.error) || `${name} save failed`);
+    }
+    const body = {
+      chat_mode: chatMode(),
+      share_platform: sharePlatform(),
+      folder_path: $("folder-path").value.trim(),
+      ai_base_url: $("ai-base-url").value.trim(),
+      ai_api_key: $("ai-api-key").value.trim(),
+      ai_model: $("ai-model").value.trim(),
+      api_temperature: Number($("api-temperature").value) || 0.9,
+      api_share_turn: Math.max(1, Number($("api-share-turn").value) || 4),
+    };
+    const r = await api("message/save", body);
+    if (!r || r.ok === false) throw new Error((r && r.error) || "save failed");
+    setStatus("message-save-status", "saved \u2713 (applies on bot start)", "ok");
+  } catch (e) {
+    setStatus("message-save-status", e.message || "save failed", "error");
   }
-  const body = {
-    chat_mode: chatMode(),
-    share_platform: sharePlatform(),
-    folder_path: $("folder-path").value.trim(),
-    ai_base_url: $("ai-base-url").value.trim(),
-    ai_api_key: $("ai-api-key").value.trim(),
-    ai_model: $("ai-model").value.trim(),
-    api_temperature: Number($("api-temperature").value) || 0.9,
-    api_share_turn: Math.max(1, Number($("api-share-turn").value) || 4),
-  };
-  const r = await api("message/save", body);
-  setStatus("message-save-status", r.ok ? "saved \u2713 (applies on bot start)" : (r.error || "save failed"), r.ok ? "ok" : "error");
   setTimeout(() => setStatus("message-save-status", ""), 4000);
 });
 

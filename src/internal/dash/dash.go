@@ -149,8 +149,14 @@ func (a *App) routes() *http.ServeMux {
 	})
 	mux.HandleFunc("POST /api/settings", func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]string
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		a.st.SaveSettings(body)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		if err := a.st.SaveSettings(body); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
 		writeJSON(w, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("POST /api/file/get", func(w http.ResponseWriter, r *http.Request) {
@@ -165,8 +171,15 @@ func (a *App) routes() *http.ServeMux {
 			Name    string `json:"name"`
 			Content string `json:"content"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		writeJSON(w, map[string]bool{"ok": a.st.WriteFile(body.Name, body.Content)})
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		if err := a.st.WriteFileChecked(body.Name, body.Content); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("POST /api/proxy/test", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -198,8 +211,11 @@ func (a *App) routes() *http.ServeMux {
 		if s.ChatMode == "" {
 			s.ChatMode = reply.ModeSingle
 		}
-		ok := a.st.WriteJSON("message_settings.json", s)
-		writeJSON(w, map[string]any{"ok": ok})
+		if err := a.st.WriteJSONChecked("message_settings.json", s); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
 	})
 	mux.HandleFunc("POST /api/sequences/load", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -466,7 +482,9 @@ func (a *App) startBots(uids []string, mode string) (bool, string) {
 	// Persist the run mode: the desktop UI's StartRun() reads settings.txt
 	// instead of taking a payload, so the legacy dashboard's radio has to
 	// write it or the two UIs disagree after a restart.
-	a.st.SaveSettings(map[string]string{"bot_mode": mode})
+	if err := a.st.SaveSettings(map[string]string{"bot_mode": mode}); err != nil {
+		return false, "save run mode: " + err.Error()
+	}
 	var accounts []store.Account
 	for _, acc := range a.st.Accounts() {
 		if len(uids) > 0 {
@@ -928,7 +946,9 @@ func (a *App) OpenChrome(target, uid string) (bool, bool) {
 		// fixed (9222 / 9300 / 9301) so a missing key must not block the
 		// browser. Persist the default so the next launch and the bots agree.
 		browser.AttachURL = "http://127.0.0.1:9222"
-		a.st.SaveSettings(map[string]string{"chrome_attach_url": browser.AttachURL})
+		if err := a.st.SaveSettings(map[string]string{"chrome_attach_url": browser.AttachURL}); err != nil {
+			a.appendLog(time.Now().Format("15:04:05") + " [chrome] could not persist chrome_attach_url: " + err.Error())
+		}
 		a.appendLog(time.Now().Format("15:04:05") + " [chrome] chrome_attach_url was empty - defaulted to " + browser.AttachURL)
 	}
 	logFn := func(m string) { a.appendLog(time.Now().Format("15:04:05") + " [chrome] " + m) }
@@ -966,11 +986,14 @@ func (a *App) GetMessageSettings() map[string]any {
 }
 
 // SaveMessageSettings persists the reply settings.
-func (a *App) SaveMessageSettings(s reply.Settings) bool {
+func (a *App) SaveMessageSettings(s reply.Settings) error {
 	if s.ChatMode == "" {
 		s.ChatMode = reply.ModeSingle
 	}
-	return a.st.WriteJSON("message_settings.json", s)
+	if err := a.st.WriteJSONChecked("message_settings.json", s); err != nil {
+		return fmt.Errorf("write message settings: %w", err)
+	}
+	return nil
 }
 
 // LoadSequences loads folder sequences from a directory of .txt files and
@@ -985,7 +1008,9 @@ func (a *App) LoadSequences(path string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	a.updateReplySettings(func(s *reply.Settings) { s.FolderPath = path })
+	if err := a.updateReplySettings(func(s *reply.Settings) { s.FolderPath = path }); err != nil {
+		return 0, fmt.Errorf("save folder path: %w", err)
+	}
 	a.appendLog(time.Now().Format("15:04:05") + fmt.Sprintf(" [message] loaded %d sequences from %s", n, path))
 	return n, nil
 }

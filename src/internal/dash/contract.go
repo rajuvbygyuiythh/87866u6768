@@ -253,23 +253,29 @@ func (a *App) SaveSection(section string, values map[string]any) (map[string]any
 			updates["notes"] = strOf(values, "notes")
 		}
 		if len(updates) > 0 {
-			st.SaveSettings(updates)
+			if err := st.SaveSettings(updates); err != nil {
+				return nil, fmt.Errorf("save setup settings: %w", err)
+			}
 		}
 	case "connections":
 		scheme := proxyurl.NormalizeScheme(strOf(values, "scheme"))
 		if scheme == "" {
 			scheme = proxyurl.Scheme(st)
 		}
-		st.SaveSettings(map[string]string{
+		if err := st.SaveSettings(map[string]string{
 			"use_proxy":    boolStr(values["enabled"]),
 			"proxy_scheme": scheme,
 			// legacy key: the old dashboard wrote "proxytype" and older
 			// settings.txt files still carry it, so keep both in sync.
 			"proxytype": scheme,
-		})
-		st.WriteFile("proxies", strOf(values, "entries"))
+		}); err != nil {
+			return nil, fmt.Errorf("save connection settings: %w", err)
+		}
+		if err := st.WriteFileChecked("proxies", strOf(values, "entries")); err != nil {
+			return nil, fmt.Errorf("save proxies: %w", err)
+		}
 	case "credentials":
-		a.updateReplySettings(func(s *reply.Settings) {
+		if err := a.updateReplySettings(func(s *reply.Settings) {
 			if v := strOf(values, "base_url"); v != "" {
 				s.AIBaseURL = v
 			}
@@ -282,7 +288,9 @@ func (a *App) SaveSection(section string, values map[string]any) (map[string]any
 			if f, ok := values["temperature"].(float64); ok && f > 0 {
 				s.APITemperature = f
 			}
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("save credentials: %w", err)
+		}
 	case "actions":
 		chatMode := "single"
 		switch strOf(values, "strategy") {
@@ -291,13 +299,17 @@ func (a *App) SaveSection(section string, values map[string]any) (map[string]any
 		case "model":
 			chatMode = "api"
 		}
-		a.updateReplySettings(func(s *reply.Settings) {
+		if err := a.updateReplySettings(func(s *reply.Settings) {
 			s.ChatMode = chatMode
 			if fp := strOf(values, "folder_path"); fp != "" {
 				s.FolderPath = fp
 			}
-		})
-		st.WriteFile("chat", strOf(values, "sequence"))
+		}); err != nil {
+			return nil, fmt.Errorf("save actions: %w", err)
+		}
+		if err := st.WriteFileChecked("chat", strOf(values, "sequence")); err != nil {
+			return nil, fmt.Errorf("save chat sequence: %w", err)
+		}
 		// One UI box, two pools: @handles are telegram targets (the worker
 		// reads them from telegram.txt), everything else is a snap target.
 		var snaps, tgs []string
@@ -312,10 +324,14 @@ func (a *App) SaveSection(section string, values map[string]any) (map[string]any
 				snaps = append(snaps, line)
 			}
 		}
-		st.WriteFile("snaps", strings.Join(snaps, "\n"))
-		st.WriteFile("telegram", strings.Join(tgs, "\n"))
+		if err := st.WriteFileChecked("snaps", strings.Join(snaps, "\n")); err != nil {
+			return nil, fmt.Errorf("save snap targets: %w", err)
+		}
+		if err := st.WriteFileChecked("telegram", strings.Join(tgs, "\n")); err != nil {
+			return nil, fmt.Errorf("save telegram targets: %w", err)
+		}
 	case "timings":
-		st.SaveSettings(map[string]string{
+		if err := st.SaveSettings(map[string]string{
 			"stranger_response_time_min":   strOf(values, "reply_min"),
 			"stranger_response_time_max":   strOf(values, "reply_max"),
 			"partner_no_response_secs_min": strOf(values, "silent_min"),
@@ -326,13 +342,17 @@ func (a *App) SaveSection(section string, values map[string]any) (map[string]any
 			"thread_work_time":             strOf(values, "work_time"),
 			"search_no_match_secs":         strOf(values, "no_match"),
 			"bot_sends_first":              boolStr(values["sends_first"]),
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("save timings: %w", err)
+		}
 	case "profile":
-		st.SaveSettings(map[string]string{
+		if err := st.SaveSettings(map[string]string{
 			"profile_name":        strOf(values, "name"),
 			"browser_backend": browserBackend(strOf(values, "backend")),
 			"headless":        boolStr(values["headless"]),
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("save profile: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("unknown settings section %q", section)
 	}
@@ -340,7 +360,7 @@ func (a *App) SaveSection(section string, values map[string]any) (map[string]any
 }
 
 // updateReplySettings load → mutate → save for message_settings.json.
-func (a *App) updateReplySettings(mut func(*reply.Settings)) {
+func (a *App) updateReplySettings(mut func(*reply.Settings)) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	s := reply.DefaultSettings()
@@ -349,7 +369,10 @@ func (a *App) updateReplySettings(mut func(*reply.Settings)) {
 		s = mergeReplySettings(s, stored)
 	}
 	mut(&s)
-	a.st.WriteJSON("message_settings.json", s)
+	if err := a.st.WriteJSONChecked("message_settings.json", s); err != nil {
+		return fmt.Errorf("write message settings: %w", err)
+	}
+	return nil
 }
 
 // TestConnections runs the existing proxy check per line and returns the

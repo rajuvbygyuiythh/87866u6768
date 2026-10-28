@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -228,5 +230,97 @@ func TestClearLogsHTTPRouteMatchesDesktopContract(t *testing.T) {
 	}
 	if logsBody["content"] != "" {
 		t.Fatalf("legacy logs after ClearLogs = %q, want empty", logsBody["content"])
+	}
+}
+func TestSaveSectionSetupWriteFailureReturnsError(t *testing.T) {
+	a := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(a.st.Dir, "settings.txt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.SaveSection("setup", map[string]any{"concurrency": float64(2)}); err == nil {
+		t.Fatal("expected setup save to fail when settings.txt cannot be written")
+	}
+}
+
+func TestSaveSectionConnectionsProxyWriteFailureReturnsError(t *testing.T) {
+	a := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(a.st.Dir, "proxies.txt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := a.SaveSection("connections", map[string]any{"enabled": true, "scheme": "http", "entries": "proxy.invalid:8080"})
+	if err == nil {
+		t.Fatal("expected connections save to fail when proxies.txt cannot be written")
+	}
+}
+
+func TestSaveSectionActionsChatWriteFailureReturnsError(t *testing.T) {
+	a := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(a.st.Dir, "msg", "chat.txt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := a.SaveSection("actions", map[string]any{"strategy": "single", "sequence": "hello", "targets": ""})
+	if err == nil {
+		t.Fatal("expected actions save to fail when chat.txt cannot be written")
+	}
+}
+
+func TestSaveSectionCredentialsMessageSettingsWriteFailureReturnsError(t *testing.T) {
+	a := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(a.st.Dir, "message_settings.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.SaveSection("credentials", map[string]any{"model": "test-model"}); err == nil {
+		t.Fatal("expected credentials save to fail when message_settings.json cannot be written")
+	}
+}
+
+func TestLegacySettingsRouteReportsWriteFailure(t *testing.T) {
+	a := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(a.st.Dir, "settings.txt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/settings", strings.NewReader(`{"concurrency":"2"}`))
+	rec := httptest.NewRecorder()
+	a.routes().ServeHTTP(rec, req)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["ok"] != false || body["error"] == nil || body["error"] == "" {
+		t.Fatalf("legacy settings failure response = %#v, want ok=false and error", body)
+	}
+}
+
+func TestLegacyFileSaveRouteReportsWriteFailure(t *testing.T) {
+	a := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(a.st.Dir, "msg", "chat.txt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/file/save", strings.NewReader(`{"name":"chat","content":"hello"}`))
+	rec := httptest.NewRecorder()
+	a.routes().ServeHTTP(rec, req)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["ok"] != false || body["error"] == nil || body["error"] == "" {
+		t.Fatalf("legacy file save failure response = %#v, want ok=false and error", body)
+	}
+}
+
+func TestLegacyMessageSaveRouteReportsWriteFailure(t *testing.T) {
+	a := Open(t.TempDir())
+	if err := os.MkdirAll(filepath.Join(a.st.Dir, "message_settings.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/message/save", strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	a.routes().ServeHTTP(rec, req)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["ok"] != false || body["error"] == nil || body["error"] == "" {
+		t.Fatalf("legacy message save failure response = %#v, want ok=false and error", body)
 	}
 }
