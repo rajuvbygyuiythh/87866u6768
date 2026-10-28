@@ -622,6 +622,44 @@
         }
       ]
     }
+,
+    "documentation": {
+      "description": "Step E: user-facing architecture, run/troubleshooting, privacy, and changelog documentation. Docs only; no runtime data.",
+      "keywords": [
+        "docs",
+        "documentation",
+        "readme",
+        "changelog",
+        "architecture",
+        "troubleshooting",
+        "privacy",
+        "ci"
+      ],
+      "checks": [
+        "./pm verify --scope documentation"
+      ],
+      "files": [
+        {
+          "path": "README.md",
+          "role": "Quick run, architecture, reliability, tests/CI, troubleshooting, privacy",
+          "editable": true,
+          "anchors": [
+            "## Architecture",
+            "## Troubleshooting",
+            "## Reliability and safety behavior"
+          ]
+        },
+        {
+          "path": "CHANGELOG.md",
+          "role": "Unreleased clean-source reliability changelog",
+          "editable": true,
+          "anchors": [
+            "## [Unreleased]",
+            "### Clean-source reliability steps"
+          ]
+        }
+      ]
+    }
 
   }
 }
