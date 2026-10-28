@@ -107,3 +107,124 @@ test("secrets are never committed", () => {
   const hits = files.flatMap((content) => content.match(/sk-[A-Za-z0-9]{16,}/g) || []);
   assert.deepEqual(hits, [], "found something shaped like a real API key");
 });
+
+// ---------------------------------------------------------------------------
+// Draft protection behavior (minimal DOM stub, no browser required)
+// ---------------------------------------------------------------------------
+function loadAppForDraftTests() {
+  const vm = require("node:vm");
+  const elements = new Map();
+  const makeEl = (tag, id, name, type) => {
+    const listeners = {};
+    const el = {
+      tagName: String(tag).toUpperCase(),
+      id: id || "",
+      name: name || "",
+      type: type || "",
+      value: "",
+      checked: false,
+      hidden: false,
+      textContent: "",
+      style: {},
+      dataset: {},
+      classList: { toggle() {}, add() {}, remove() {} },
+      addEventListener(event, fn) { (listeners[event] = listeners[event] || []).push(fn); },
+      dispatch(event) { for (const fn of listeners[event] || []) fn({ target: el }); },
+      appendChild() {},
+      replaceChildren() {},
+      querySelector() { return null; },
+      remove() {},
+    };
+    if (id) elements.set(id, el);
+    return el;
+  };
+  const document = {
+    activeElement: null,
+    documentElement: { dataset: {} },
+    getElementById: (id) => elements.get(id) || null,
+    createElement: (tag) => makeEl(tag),
+    createDocumentFragment: () => ({ appendChild() {} }),
+    querySelectorAll: (selector) => {
+      if (selector === "input[id], textarea[id], select[id]") {
+        return [...elements.values()].filter((el) => el.id && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+      }
+      if (selector === ".mode-option") return [];
+      if (selector === 'input[name="msg-strategy"]') {
+        return [...elements.values()].filter((el) => el.name === "msg-strategy");
+      }
+      return [];
+    },
+    querySelector: (selector) => {
+      const m = selector.match(/input\[name="msg-strategy"\]\[value="([^"]+)"\]/);
+      if (m) return [...elements.values()].find((el) => el.name === "msg-strategy" && el.value === m[1]) || null;
+      return null;
+    },
+  };
+  const context = vm.createContext({
+    document,
+    window: { addEventListener() {}, runtime: {} },
+    localStorage: { getItem: () => null, setItem() {} },
+    setInterval() {},
+    setTimeout() { return 0; },
+    clearTimeout() {},
+    console,
+  });
+  const expose = "\n;globalThis.__draftTest = { dirtyFields, bindDraftTracking, markDirty, clearSectionDirty, setValue, saveSection, setStrategy, refreshSnapshot, bridge };";
+  vm.runInContext(appJs + expose, context);
+  return { context, api: context.__draftTest, makeEl, document };
+}
+
+test("draft tracking protects blurred fields from snapshot writes", () => {
+  const { api, makeEl, document } = loadAppForDraftTests();
+  const entries = makeEl("textarea", "proxy-entries");
+  entries.value = "local draft";
+  api.bindDraftTracking();
+  entries.dispatch("input");
+  document.activeElement = null;
+  api.setValue("proxy-entries", "server value");
+  assert.equal(entries.value, "local draft");
+  api.clearSectionDirty("connections");
+  api.setValue("proxy-entries", "server value");
+  assert.equal(entries.value, "server value");
+});
+
+test("radio strategy draft is protected until forced or saved", () => {
+  const { api, makeEl } = loadAppForDraftTests();
+  const single = makeEl("input", "msg-strategy-single", "msg-strategy", "radio");
+  single.value = "single";
+  single.checked = true;
+  const folder = makeEl("input", "msg-strategy-folder", "msg-strategy", "radio");
+  folder.value = "folder";
+  api.bindDraftTracking();
+  folder.dispatch("change");
+  assert.ok(api.dirtyFields.has("msg-strategy"));
+  api.setStrategy("folder");
+  assert.equal(folder.checked, false);
+  api.setStrategy("folder", true);
+  assert.equal(folder.checked, true);
+});
+
+test("save success clears only its section; save failure keeps drafts", async () => {
+  const { api, makeEl } = loadAppForDraftTests();
+  makeEl("p", "proxy-status");
+  makeEl("div", "toast-wrap");
+  api.dirtyFields.add("proxy-entries");
+  api.dirtyFields.add("set-reply-min");
+  api.bridge.invoke = async () => null;
+  await api.saveSection("connections", {}, "proxy-status");
+  assert.equal(api.dirtyFields.has("proxy-entries"), false);
+  assert.equal(api.dirtyFields.has("set-reply-min"), true);
+  api.dirtyFields.add("proxy-entries");
+  api.bridge.invoke = async () => { throw new Error("offline"); };
+  await api.saveSection("connections", {}, "proxy-status");
+  assert.equal(api.dirtyFields.has("proxy-entries"), true);
+});
+
+test("manual snapshot refresh keeps unsaved drafts", async () => {
+  const { context, api } = loadAppForDraftTests();
+  api.dirtyFields.add("proxy-entries");
+  api.bridge.invoke = async () => ({});
+  require("node:vm").runInContext("applySnapshot = () => {};", context);
+  await api.refreshSnapshot(false);
+  assert.equal(api.dirtyFields.has("proxy-entries"), true);
+});

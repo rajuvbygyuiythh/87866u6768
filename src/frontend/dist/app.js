@@ -27,6 +27,48 @@ const state = {
 
 // Draft protection: server snapshots never stomp a field the user is editing.
 const dirtyFields = new Set();
+const SECTION_FIELDS = {
+  setup: ["home-workers"],
+  connections: ["proxy-enabled", "proxy-scheme", "proxy-entries"],
+  credentials: ["msg-cred-base-url", "msg-cred-api-key", "msg-cred-model", "msg-cred-temperature"],
+  actions: ["msg-strategy", "msg-sequence", "msg-targets", "msg-folder-path"],
+  timings: [
+    "set-reply-min", "set-reply-max", "set-silent-min", "set-silent-max",
+    "set-reroll-min", "set-reroll-max", "set-instskip", "set-worktime",
+    "set-nomatch", "set-sends-first",
+  ],
+};
+const FIELD_SECTION = {};
+for (const [section, ids] of Object.entries(SECTION_FIELDS)) {
+  for (const id of ids) FIELD_SECTION[id] = section;
+}
+const RADIO_GROUPS = { "msg-strategy": "actions" };
+
+function draftKey(el) {
+  if (!el) return "";
+  if (el.name && RADIO_GROUPS[el.name]) return el.name;
+  return el.id || "";
+}
+
+function markDirty(key) {
+  if (FIELD_SECTION[key]) dirtyFields.add(key);
+}
+
+function clearSectionDirty(section) {
+  for (const key of [...dirtyFields]) {
+    if (FIELD_SECTION[key] === section) dirtyFields.delete(key);
+  }
+}
+
+function bindDraftTracking() {
+  document.querySelectorAll("input[id], textarea[id], select[id]").forEach((el) => {
+    const key = draftKey(el);
+    if (!FIELD_SECTION[key]) return;
+    const handler = () => markDirty(key);
+    el.addEventListener("input", handler);
+    el.addEventListener("change", handler);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Tiny helpers
@@ -38,8 +80,8 @@ const checked = (id) => { const el = byId(id); return !!(el && el.checked); };
 
 function setValue(id, val, force) {
   const el = byId(id);
-  if (!el || el === document.activeElement) return;
-  if (!force && dirtyFields.has(id)) return;
+  if (!el) return;
+  if (!force && (el === document.activeElement || dirtyFields.has(id))) return;
   if (el.type === "checkbox") el.checked = !!val;
   else el.value = val ?? "";
 }
@@ -304,7 +346,8 @@ function renderStats(stats) {
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-function setStrategy(strategy) {
+function setStrategy(strategy, force) {
+  if (!force && dirtyFields.has("msg-strategy")) return;
   const radio = document.querySelector(`input[name="msg-strategy"][value="${strategy}"]`);
   if (radio) radio.checked = true;
   document.querySelectorAll(".mode-option").forEach((option) => {
@@ -326,7 +369,7 @@ async function saveSection(section, values, statusId) {
   try {
     setStatus(statusId, "Saving…");
     const snapshot = await bridge.invoke("SaveSettings", section, values);
-    dirtyFields.clear();
+    clearSectionDirty(section);
     if (snapshot) applySnapshot(snapshot);
     setStatus(statusId, "Saved.", "ok");
     toast(`${section} saved.`);
@@ -384,6 +427,7 @@ async function startRunFlow(mode) {
     const workers = Math.min(10, Math.max(1, Math.round(num("home-workers") || 1)));
     setStatus("home-status", `Saving ${mode} mode…`);
     await bridge.invoke("SaveSettings", "setup", { mode, concurrency: workers });
+    clearSectionDirty("setup");
     state.logs.entries = [];
     state.logs.after = 0;
     renderLogs();
@@ -453,6 +497,7 @@ async function browseFolder() {
     const picked = String(dir || "").trim();
     if (!picked) return; // user cancelled the dialog
     setValue("msg-folder-path", picked, true);
+    markDirty("msg-folder-path");
     setStatus("msg-folder-status", "Folder selected — click Load Folder.");
   } catch (error) {
     toast(error.message || String(error), "error");
@@ -564,10 +609,10 @@ async function clearLogs() {
   }
 }
 
-async function refreshSnapshot(silent, force) {
+async function refreshSnapshot(silent) {
   try {
     const snapshot = await bridge.invoke("GetSnapshot");
-    if (force) dirtyFields.clear();
+    // Manual refresh keeps unsaved drafts; only a successful save clears them.
     applySnapshot(snapshot);
     return snapshot;
   } catch (error) {
@@ -580,10 +625,14 @@ async function refreshSnapshot(silent, force) {
 // Wiring
 // ---------------------------------------------------------------------------
 function bindForms() {
+  bindDraftTracking();
   document.querySelectorAll('input[name="msg-strategy"]').forEach((input) => {
-    input.addEventListener("change", () => setStrategy(readStrategy()));
+    input.addEventListener("change", () => {
+      markDirty("msg-strategy");
+      setStrategy(readStrategy(), true);
+    });
   });
-  setStrategy(readStrategy());
+  setStrategy(readStrategy(), true);
   const theme = byId("theme-select");
   if (theme) {
     theme.value = localStorage.getItem("kit-theme") || CONFIG.theme;
@@ -598,11 +647,11 @@ function bindActions() {
   };
 
   on("demo-hide", () => { const b = byId("demo-banner"); if (b) b.hidden = true; });
-  on("home-refresh", () => refreshSnapshot(false, true));
-  on("proxy-refresh", () => refreshSnapshot(false, true));
-  on("msg-refresh", () => refreshSnapshot(false, true));
-  on("browser-refresh", () => refreshSnapshot(false, true));
-  on("settings-refresh", () => refreshSnapshot(false, true));
+  on("home-refresh", () => refreshSnapshot(false));
+  on("proxy-refresh", () => refreshSnapshot(false));
+  on("msg-refresh", () => refreshSnapshot(false));
+  on("browser-refresh", () => refreshSnapshot(false));
+  on("settings-refresh", () => refreshSnapshot(false));
   on("logs-refresh", () => { refreshLogs(); refreshSnapshot(true); });
 
   const theme = byId("theme-select");
