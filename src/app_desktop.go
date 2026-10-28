@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -36,6 +37,9 @@ func (d *DesktopApp) startup(ctx context.Context) {
 }
 
 func (d *DesktopApp) shutdown(_ context.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = d.dapp.Shutdown(ctx)
 	_, _ = d.dapp.StopBots()
 }
 

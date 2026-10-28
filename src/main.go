@@ -15,14 +15,17 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/wailsapp/wails/v2"
@@ -52,15 +55,35 @@ func main() {
 
 	if *serverMode {
 		app := dash.Open(*dataDir)
+		addr := fmt.Sprintf("127.0.0.1:%d", *port)
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
+		errCh := make(chan error, 1)
+		go func() { errCh <- app.Serve(addr) }()
+
 		if !*noBrowser {
 			go func() {
-				time.Sleep(700 * time.Millisecond)
-				openBrowser(fmt.Sprintf("http://127.0.0.1:%d", *port))
+				select {
+				case <-time.After(700 * time.Millisecond):
+					openBrowser("http://" + addr)
+				case <-ctx.Done():
+				}
 			}()
 		}
-		if err := app.Serve(fmt.Sprintf("127.0.0.1:%d", *port)); err != nil {
-			fmt.Fprintln(os.Stderr, "dashboard:", err)
-			os.Exit(1)
+
+		select {
+		case err := <-errCh:
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "dashboard:", err)
+				os.Exit(1)
+			}
+		case <-ctx.Done():
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := app.Shutdown(shutdownCtx); err != nil {
+				fmt.Fprintln(os.Stderr, "dashboard shutdown:", err)
+			}
 		}
 		return
 	}

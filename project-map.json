@@ -305,6 +305,76 @@
         "cd src && go test -race ./internal/store",
         "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
       ]
+    },
+    "http-hardening": {
+      "description": "Step B: loopback Host/Origin guards, request-body limits, HTTP timeouts, and graceful server/desktop shutdown. Source and tests only; no runtime data.",
+      "keywords": [
+        "http",
+        "server",
+        "host",
+        "origin",
+        "timeout",
+        "shutdown",
+        "body",
+        "limit",
+        "hardening",
+        "loopback"
+      ],
+      "files": [
+        {
+          "path": "src/internal/dash/dash.go",
+          "role": "App HTTP server lifecycle, timeouts, idempotent event drain, and Serve/Shutdown wiring",
+          "editable": true,
+          "anchors": [
+            "func (a *App) Serve(",
+            "func (a *App) serve(",
+            "drainOnce"
+          ]
+        },
+        {
+          "path": "src/internal/dash/server.go",
+          "role": "Loopback Host/Origin guard, body-size limit, and graceful Shutdown helper",
+          "editable": true,
+          "anchors": [
+            "func (a *App) handler(",
+            "func (a *App) Shutdown(",
+            "maxRequestBodyBytes"
+          ]
+        },
+        {
+          "path": "src/internal/dash/server_test.go",
+          "role": "Host/Origin/body-limit/shutdown regression tests",
+          "editable": true,
+          "anchors": [
+            "TestHardenedHandlerRejectsForeignHost",
+            "TestServeShutdownStopsListener"
+          ]
+        },
+        {
+          "path": "src/main.go",
+          "role": "Headless server signal handling and graceful shutdown",
+          "editable": true,
+          "anchors": [
+            "signal.NotifyContext",
+            "app.Shutdown"
+          ]
+        },
+        {
+          "path": "src/app_desktop.go",
+          "role": "Desktop shutdown stops HTTP server before bots",
+          "editable": true,
+          "anchors": [
+            "func (d *DesktopApp) shutdown(",
+            "d.dapp.Shutdown"
+          ]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./internal/dash",
+        "cd src && go test -race ./internal/dash",
+        "cd src && go build ./...",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
+      ]
     }
   }
 }

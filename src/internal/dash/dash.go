@@ -56,6 +56,9 @@ type App struct {
 
 	stats    SessionStats
 	statSeen map[string]bot.Status // per-worker last-seen counters for delta accumulation
+
+	drainOnce  sync.Once
+	httpServer *http.Server
 }
 
 func Open(dataDir string) *App {
@@ -848,8 +851,10 @@ type SessionStats struct {
 	Banned         int `json:"banned"`
 }
 
-// StartEventDrain launches the bot-event -> log pump (idempotent enough: call once).
-func (a *App) StartEventDrain() { go a.drainEvents() }
+// StartEventDrain launches the bot-event -> log pump exactly once per App.
+func (a *App) StartEventDrain() {
+	a.drainOnce.Do(func() { go a.drainEvents() })
+}
 
 // GetSnapshot returns the full UI state plus the recent log tail.
 func (a *App) GetSnapshot() Snapshot {
@@ -1009,13 +1014,39 @@ func (a *App) OpenDataFolder(which string) (string, error) {
 	return dir, nil
 }
 
-// Serve starts the dashboard.
+// Serve starts the dashboard on addr and blocks until the listener closes.
 func (a *App) Serve(addr string) error {
-	go a.drainEvents()
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
+	return a.serve(ln)
+}
+
+// serve runs the hardened HTTP server on an existing listener. Shutdown closes
+// the listener and drains in-flight requests; Serve then returns nil.
+func (a *App) serve(ln net.Listener) error {
+	a.StartEventDrain()
+	srv := &http.Server{
+		Handler:           a.handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	a.mu.Lock()
+	a.httpServer = srv
+	a.mu.Unlock()
 	fmt.Printf("Thundr Bot dashboard -> http://%s\n", ln.Addr())
-	return http.Serve(ln, a.routes())
+	err := srv.Serve(ln)
+	a.mu.Lock()
+	if a.httpServer == srv {
+		a.httpServer = nil
+	}
+	a.mu.Unlock()
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
 }
