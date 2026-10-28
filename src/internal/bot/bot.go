@@ -68,12 +68,12 @@ type Bot struct {
 	retryT float64
 	workT  float64
 
-	respMin, respMax   float64 // stranger_response_time range (random per reply)
+	respMin, respMax     float64 // stranger_response_time range (random per reply)
 	noRespMin, noRespMax float64 // partner_no_response_secs range (random per match)
-	noRespCur          float64   // this match's drawn silent-skip threshold
+	noRespCur            float64 // this match's drawn silent-skip threshold
 	rerollMin, rerollMax float64 // reroll_delay_secs range (random per re-roll)
-	instSkip float64 // instant_skip_secs: partner leaving within this = instant re-roll
-	sendsFirst bool  // bot_sends_first: send the opener ourselves (off = partner writes first)
+	instSkip             float64 // instant_skip_secs: partner leaving within this = instant re-roll
+	sendsFirst           bool    // bot_sends_first: send the opener ourselves (off = partner writes first)
 
 	mu           sync.Mutex
 	replyMu      sync.Mutex // serializes replies so lines go out one at a time

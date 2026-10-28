@@ -30,8 +30,8 @@ import (
 type Callbacks struct {
 	Log      func(uid, state, msg string)
 	Status   func(uid string, matches, replies, line int)
-	MatchEnd func(uid, cls string, why []string)  // partner classified bot/real/unknown
-	Share    func(uid, platform string)           // final (share) line sent: snap|tg|both
+	MatchEnd func(uid, cls string, why []string) // partner classified bot/real/unknown
+	Share    func(uid, platform string)          // final (share) line sent: snap|tg|both
 }
 
 // delays mirrors the human_delay settings (settings.txt).
@@ -1119,13 +1119,13 @@ func RunVisibleBot(ctx context.Context, st *store.Store, acc store.Account, prox
 	d := loadDelays(st)
 	mgr := reply.NewManager(st)
 	interests := st.LoadList("interests")
-	respMin, respMax := st.RangeSecs("stranger_response_time", 2, 5)   // reply delay range (random per reply)
+	respMin, respMax := st.RangeSecs("stranger_response_time", 2, 5) // reply delay range (random per reply)
 	workT := st.Float("thread_work_time", 600)
 	noRespMin, noRespMax := st.RangeSecs("partner_no_response_secs", 10, 15) // silent-skip range (random per match)
 	noRespCur := store.RandBetween(noRespMin, noRespMax)
 	instSkip := st.Float("instant_skip_secs", 5)
-	noMatchT := st.Float("search_no_match_secs", 75)                   // search watchdog: reload queue after this long with no match
-	rerollMin, rerollMax := st.RangeSecs("reroll_delay_secs", 6, 12)   // re-roll pause range (random per re-roll)
+	noMatchT := st.Float("search_no_match_secs", 75)                 // search watchdog: reload queue after this long with no match
+	rerollMin, rerollMax := st.RangeSecs("reroll_delay_secs", 6, 12) // re-roll pause range (random per re-roll)
 	sendsFirst := st.Bool("bot_sends_first", false)                  // true = send the opener ourselves after a match
 	tag := acc.UserID[:8]
 	say := func(state, msg string) { cb.Log(acc.UserID, state, "["+tag+"] "+msg) }
@@ -1265,24 +1265,24 @@ func RunVisibleBot(ctx context.Context, st *store.Store, acc store.Account, prox
 	}()
 
 	var (
-		ref          = 1000
-		joinRefs     = map[string]string{}
-		roomTopic    string
-		matchID      string
-		partnerID    string
-		sess         reply.Session
-		matches      int
-		replies      int
-		matchTopic   = "match:" + acc.UserID
-		started      = time.Now()
-		lastSearch   = time.Now()
-		matchStart   time.Time
-		lastActivity time.Time
-		pauseUntil   time.Time
+		ref             = 1000
+		joinRefs        = map[string]string{}
+		roomTopic       string
+		matchID         string
+		partnerID       string
+		sess            reply.Session
+		matches         int
+		replies         int
+		matchTopic      = "match:" + acc.UserID
+		started         = time.Now()
+		lastSearch      = time.Now()
+		matchStart      time.Time
+		lastActivity    time.Time
+		pauseUntil      time.Time
 		searchStartedAt = time.Now() // actual Start-click time (for true queue-wait measurement)
 		socketMisses    int          // consecutive dead-socket reloads (backoff under throttle)
-		intel        *bot.MatchIntel
-		bannedKw     = []string{"ban", "suspend", "blocked", "kicked"}
+		intel           *bot.MatchIntel
+		bannedKw        = []string{"ban", "suspend", "blocked", "kicked"}
 	)
 
 	// forward-declared: assigned below, used by skipPartner and the loop
@@ -1602,35 +1602,35 @@ func RunVisibleBot(ctx context.Context, st *store.Store, acc store.Account, prox
 				cb.Status(acc.UserID, matches, replies, 0)
 				say("matched", fmt.Sprintf("MATCHED %.8s after %.1fs shared=%v", mid, intel.SearchSecs, fr.payload["shared_interests"]))
 				say("", fmt.Sprintf("matched payload: %.300s", string(raw)))
-			// opener (optional): when bot_sends_first is on, the bot's first line
-			// goes out through the site UI right after the match settles.
-			if sendsFirst && sess != nil {
-				if opener := sess.Open(); strings.TrimSpace(opener) != "" {
-					go func(text string) {
-						time.Sleep(time.Duration(store.RandBetween(respMin, respMax)*1000) * time.Millisecond)
-						if roomTopic == "" {
-							return // partner left before we opened
-						}
-						sendFrame(roomTopic, "typing", map[string]any{"sender_id": acc.UserID})
-						typingMs := 300 + len(text)*75 + rand.Intn(400)
-						if typingMs > 1200 {
-							typingMs = 1200 // openers type fast
-						}
-						time.Sleep(time.Duration(typingMs) * time.Millisecond)
-						if roomTopic == "" {
-							return
-						}
-						for _, part := range strings.Split(text, "\n") {
-							if part = strings.TrimSpace(part); part != "" {
-								sendChatMessage(part)
+				// opener (optional): when bot_sends_first is on, the bot's first line
+				// goes out through the site UI right after the match settles.
+				if sendsFirst && sess != nil {
+					if opener := sess.Open(); strings.TrimSpace(opener) != "" {
+						go func(text string) {
+							time.Sleep(time.Duration(store.RandBetween(respMin, respMax)*1000) * time.Millisecond)
+							if roomTopic == "" {
+								return // partner left before we opened
 							}
-						}
-						if intel != nil && intel.OurFirstReplyAt.IsZero() {
-							intel.OurFirstReplyAt = time.Now()
-						}
-					}(opener)
+							sendFrame(roomTopic, "typing", map[string]any{"sender_id": acc.UserID})
+							typingMs := 300 + len(text)*75 + rand.Intn(400)
+							if typingMs > 1200 {
+								typingMs = 1200 // openers type fast
+							}
+							time.Sleep(time.Duration(typingMs) * time.Millisecond)
+							if roomTopic == "" {
+								return
+							}
+							for _, part := range strings.Split(text, "\n") {
+								if part = strings.TrimSpace(part); part != "" {
+									sendChatMessage(part)
+								}
+							}
+							if intel != nil && intel.OurFirstReplyAt.IsZero() {
+								intel.OurFirstReplyAt = time.Now()
+							}
+						}(opener)
+					}
 				}
-			}
 			case "message":
 				if fr.topic == roomTopic {
 					if sid, _ := fr.payload["sender_id"].(string); sid != acc.UserID {

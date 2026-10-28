@@ -1,4 +1,4 @@
-﻿package browser
+package browser
 
 import (
 	"encoding/json"
@@ -63,6 +63,7 @@ func winTemp() string {
 	}
 	return filepath.Join(base, "Temp")
 }
+
 // childEnv builds a clean environment for spawned chrome. A dashboard started
 // from a POSIX shell / unusual wrapper inherits a PATH made of /usr/bin
 // entries; chrome then fails with "The system cannot find the path specified"
@@ -97,8 +98,6 @@ func childEnv() []string {
 	}
 	return env
 }
-
-
 
 // attachPortOf extracts the port from an attach URL (http://127.0.0.1:9222 -> 9222).
 func attachPortOf(attachURL string) string {
@@ -187,8 +186,6 @@ func chromeArgs(profileDir, port, ua, url string, guest bool) []string {
 	return append(args, url)
 }
 
-
-
 // rootOf returns the project root that owns data/ (data dir's parent).
 func rootOf(st *store.Store) string {
 	root := st.Dir
@@ -197,8 +194,6 @@ func rootOf(st *store.Store) string {
 	}
 	return root
 }
-
-
 
 // waitPort polls a DevTools endpoint until it answers or the deadline passes.
 func waitPort(attachURL string, d time.Duration) bool {
@@ -211,10 +206,6 @@ func waitPort(attachURL string, d time.Duration) bool {
 	}
 	return false
 }
-
-
-
-
 
 // ensureChromeOn makes sure a chrome with profileDir listens on attachURL's
 // port. SINGLE PATH: the exe spawns the installed chrome itself — a visible
@@ -336,6 +327,7 @@ func Status(st *store.Store) map[string]any {
 		"problem":      problem,
 	}
 }
+
 // CloseAll shuts every chrome the dashboard owns (register, manual, and the
 // worker base port). Workers on other ports are closed by StopBots.
 func CloseAll(st *store.Store) {

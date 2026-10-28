@@ -479,6 +479,149 @@
         "node --check src/frontend/dist/app.js",
         "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
       ]
+    },
+    "ci-quality": {
+      "description": "Step D: CI quality gates, YAML-aware project manager, and one-time gofmt normalization. Source/tooling only; no runtime data.",
+      "keywords": [
+        "ci",
+        "workflow",
+        "github actions",
+        "gofmt",
+        "vet",
+        "race",
+        "build",
+        "cache"
+      ],
+      "checks": [
+        "node --test tests/project-manager.test.cjs",
+        "./pm verify --scope ci-quality"
+      ],
+      "files": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "role": "CI gates: node, gofmt/vet/test/race, Windows desktop build",
+          "editable": true,
+          "anchors": [
+            "name: CI",
+            "go-internal",
+            "desktop-build",
+            "cache-dependency-path: src/go.sum"
+          ]
+        },
+        {
+          "path": "tools/project-manager.cjs",
+          "role": "Allow YAML workflow files in scoped reads/edits",
+          "editable": true,
+          "anchors": [
+            "const ALLOWED_EXTENSIONS"
+          ]
+        },
+        {
+          "path": "tests/project-manager.test.cjs",
+          "role": "YAML allowlist regression test",
+          "editable": true,
+          "anchors": [
+            "project manager can scope YAML workflow files when allowlisted"
+          ]
+        },
+        {
+          "path": "src/app_contract.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package main"
+          ]
+        },
+        {
+          "path": "src/cmd/observer/main.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package"
+          ]
+        },
+        {
+          "path": "src/internal/bot/bot.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package bot"
+          ]
+        },
+        {
+          "path": "src/internal/bot/transport.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package bot"
+          ]
+        },
+        {
+          "path": "src/internal/browser/browser.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package browser"
+          ]
+        },
+        {
+          "path": "src/internal/browser/launch.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package"
+          ]
+        },
+        {
+          "path": "src/internal/browser/session.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package browser"
+          ]
+        },
+        {
+          "path": "src/internal/browser/session_test.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package browser"
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package dash"
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract_test.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package dash"
+          ]
+        },
+        {
+          "path": "src/internal/redact/redact.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package redact"
+          ]
+        },
+        {
+          "path": "src/internal/redact/redact_test.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package redact"
+          ]
+        }
+      ]
     }
+
   }
 }

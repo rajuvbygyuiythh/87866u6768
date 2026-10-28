@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chromedp/chromedp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/target"
+	"github.com/chromedp/chromedp"
 )
 
 const captureJS = `
@@ -36,7 +36,10 @@ Storage.prototype.setItem = function(k, v) { if (k === 'user' || k === 'settings
 
 func main() {
 	logf, err := os.OpenFile(os.Args[1], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil { fmt.Println(err); return }
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	defer logf.Close()
 	w := func(s string) { logf.WriteString(time.Now().Format("15:04:05") + " " + s + "\n") }
 	w("observer starting")
@@ -50,19 +53,29 @@ func main() {
 		ts, terr := chromedp.Targets(bctx)
 		if terr == nil {
 			for _, t := range ts {
-				if t.Type == "page" && strings.Contains(t.URL, "thundr.com") { chosen = t.TargetID; break }
+				if t.Type == "page" && strings.Contains(t.URL, "thundr.com") {
+					chosen = t.TargetID
+					break
+				}
 			}
 		}
-		if chosen == "" { time.Sleep(1 * time.Second) }
+		if chosen == "" {
+			time.Sleep(1 * time.Second)
+		}
 	}
-	if chosen == "" { w("no thundr tab found"); return }
+	if chosen == "" {
+		w("no thundr tab found")
+		return
+	}
 	w("attached to tab " + string(chosen[:8]))
 	c, cc := chromedp.NewContext(rootCtx, chromedp.WithTargetID(chosen))
 	defer cc()
 	if err := chromedp.Run(c, chromedp.ActionFunc(func(ctx context.Context) error {
 		_, err := page.AddScriptToEvaluateOnNewDocument(captureJS).Do(ctx)
 		return err
-	})); err != nil { w("hook-err: " + err.Error()) }
+	})); err != nil {
+		w("hook-err: " + err.Error())
+	}
 	var warm string
 	_ = chromedp.Run(c, chromedp.Evaluate(captureJS, &warm))
 	lastSnap := ""
@@ -73,7 +86,9 @@ func main() {
 			const out = window.__thundrLog.splice(0).map(e => e.t + ' [' + e.kind + '] ' + e.data);
 			return out.join('\n');
 		})()`, &batch))
-		if err == nil && strings.TrimSpace(batch) != "" { w(batch) }
+		if err == nil && strings.TrimSpace(batch) != "" {
+			w(batch)
+		}
 		if i%5 == 0 { // every ~10s: state snapshot on change
 			var snap string
 			_ = chromedp.Run(c, chromedp.Evaluate(`(() => {
@@ -82,9 +97,11 @@ func main() {
 				try { us = (JSON.parse(localStorage.getItem('user')||'{}').settings)||{}; } catch(e) {}
 				return 'LOCAL autoRoll=' + JSON.stringify(ls.autoRoll||null) + ' privacy=' + JSON.stringify(ls.privacy||null) + ' | SERVER autoRoll=' + JSON.stringify(us.autoRoll||null);
 			})()`, &snap))
-			if snap != lastSnap && snap != "" { w("STATE " + snap); lastSnap = snap }
+			if snap != lastSnap && snap != "" {
+				w("STATE " + snap)
+				lastSnap = snap
+			}
 		}
 		time.Sleep(2 * time.Second)
 	}
 }
-

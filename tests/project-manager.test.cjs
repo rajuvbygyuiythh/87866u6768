@@ -192,3 +192,12 @@ test('project manager CLI help, JSON scopes, and unknown-command errors', () => 
   assert.equal(unknown.status, 2);
   assert.equal(JSON.parse(unknown.stderr).ok, false);
 });
+
+test('project manager can scope YAML workflow files when allowlisted', (t) => {
+  const { root, manager } = fixture(t, {
+    map: (map) => map.scopes.alpha.files.push({ path: 'ci.yml', role: 'CI workflow', editable: true, anchors: ['name: CI'] }),
+    files: (root) => fs.writeFileSync(path.join(root, 'ci.yml'), 'name: CI\n'),
+  });
+  assert.equal(isDenied('.github/workflows/ci.yml'), false);
+  assert.equal(manager.read('ci.yml', { scope: 'alpha' }).content[0].text, 'name: CI');
+});

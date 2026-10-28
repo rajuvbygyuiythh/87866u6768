@@ -165,7 +165,7 @@ func (a *App) ContractSnapshot() map[string]any {
 			// The only backend this project actually drives is chromedp (CDP).
 			// The kit contract's "rod" default was a leftover from the reference
 			// design; reporting it here advertised a backend that does not exist.
-			"backend": browserBackend(st.Get("browser_backend", "chromedp")),
+			"backend":  browserBackend(st.Get("browser_backend", "chromedp")),
 			"headless": st.Bool("headless", false),
 		},
 	}
@@ -347,7 +347,7 @@ func (a *App) SaveSection(section string, values map[string]any) (map[string]any
 		}
 	case "profile":
 		if err := st.SaveSettings(map[string]string{
-			"profile_name":        strOf(values, "name"),
+			"profile_name":    strOf(values, "name"),
 			"browser_backend": browserBackend(strOf(values, "backend")),
 			"headless":        boolStr(values["headless"]),
 		}); err != nil {

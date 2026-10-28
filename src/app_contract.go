@@ -94,7 +94,7 @@ func (d *DesktopApp) BrowseMessageFolder() (string, error) {
 		return "", fmt.Errorf("the folder picker needs the desktop window")
 	}
 	opts := wailsRuntime.OpenDialogOptions{
-		Title:               "Select the SMS sequences folder",
+		Title:                "Select the SMS sequences folder",
 		CanCreateDirectories: true,
 	}
 	if s, ok := d.dapp.GetMessageSettings()["settings"].(reply.Settings); ok {
