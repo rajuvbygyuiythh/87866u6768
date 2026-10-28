@@ -169,7 +169,7 @@ function loadAppForDraftTests() {
     clearTimeout() {},
     console,
   });
-  const expose = "\n;globalThis.__draftTest = { dirtyFields, bindDraftTracking, markDirty, clearSectionDirty, setValue, saveSection, setStrategy, refreshSnapshot, bridge };";
+  const expose = "\n;globalThis.__draftTest = { dirtyFields, bindDraftTracking, markDirty, clearSectionDirty, setValue, saveSection, setStrategy, refreshSnapshot, browseFolder, httpInvoke, bridge };";
   vm.runInContext(appJs + expose, context);
   return { context, api: context.__draftTest, makeEl, document };
 }
@@ -227,4 +227,79 @@ test("manual snapshot refresh keeps unsaved drafts", async () => {
   require("node:vm").runInContext("applySnapshot = () => {};", context);
   await api.refreshSnapshot(false);
   assert.equal(api.dirtyFields.has("proxy-entries"), true);
+});
+
+// ---------------------------------------------------------------------------
+// HTTP route/method parity (Step 3)
+// ---------------------------------------------------------------------------
+function stubFetch(context) {
+  const calls = [];
+  context.fetch = async (url, init = {}) => {
+    calls.push({ url, method: init.method || "GET", body: init.body });
+    return { ok: true, json: async () => ({ ok: true }) };
+  };
+  return calls;
+}
+
+test("HTTP bridge sends POST for StopRun and ClearLogs", async () => {
+  const { context, api } = loadAppForDraftTests();
+  const calls = stubFetch(context);
+  await api.httpInvoke("StopRun");
+  await api.httpInvoke("ClearLogs");
+  assert.deepEqual(calls, [
+    { url: "/api/StopRun", method: "POST", body: "{}" },
+    { url: "/api/ClearLogs", method: "POST", body: "{}" },
+  ]);
+});
+
+test("HTTP bridge maps RegisterAccounts to the legacy register route", async () => {
+  const { context, api } = loadAppForDraftTests();
+  const calls = stubFetch(context);
+  await api.httpInvoke("RegisterAccounts", 3);
+  await api.httpInvoke("RegisterAccounts");
+  assert.deepEqual(calls.map((call) => [call.url, call.method, JSON.parse(call.body)]), [
+    ["/api/register", "POST", { count: 3 }],
+    ["/api/register", "POST", { count: 1 }],
+  ]);
+});
+
+test("HTTP bridge keeps browser status GET and maps OpenBrowser payload", async () => {
+  const { context, api } = loadAppForDraftTests();
+  const calls = stubFetch(context);
+  await api.httpInvoke("GetBrowserStatus");
+  await api.httpInvoke("OpenBrowser", "bot", "user-1");
+  assert.equal(calls[0].url, "/api/browser/status");
+  assert.equal(calls[0].method, "GET");
+  assert.equal(calls[0].body, undefined);
+  assert.equal(calls[1].url, "/api/chrome/open");
+  assert.equal(calls[1].method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].body), { target: "bot", uid: "user-1" });
+});
+
+test("Browse folder in HTTP mode explains the desktop-only picker without a request", async () => {
+  const { context, api, makeEl } = loadAppForDraftTests();
+  const status = makeEl("p", "msg-folder-status");
+  const input = makeEl("input", "msg-folder-path");
+  let focused = false;
+  input.focus = () => { focused = true; };
+  api.bridge.kind = "http";
+  let requested = false;
+  context.fetch = async () => { requested = true; throw new Error("unexpected fetch"); };
+  await api.browseFolder();
+  assert.equal(requested, false);
+  assert.equal(focused, true);
+  assert.match(status.textContent, /desktop app/i);
+  assert.match(status.textContent, /Type the folder path/i);
+});
+
+test("Browse folder in desktop mode still fills and marks the path dirty", async () => {
+  const { api, makeEl } = loadAppForDraftTests();
+  const status = makeEl("p", "msg-folder-status");
+  const input = makeEl("input", "msg-folder-path");
+  api.bridge.kind = "wails";
+  api.bridge.api = { BrowseMessageFolder: async () => "D:\\sms" };
+  await api.browseFolder();
+  assert.equal(input.value, "D:\\sms");
+  assert.ok(api.dirtyFields.has("msg-folder-path"));
+  assert.match(status.textContent, /Folder selected/i);
 });

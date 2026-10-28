@@ -129,19 +129,23 @@ const bridge = {
 const HTTP_ALIAS = {
   GetBrowserStatus: { path: "browser/status", verb: "GET" },
   CloseBrowsers: { path: "browser/close", verb: "POST" },
-  OpenBrowser: { path: "chrome/open", verb: "POST" },
+  OpenBrowser: { path: "chrome/open", verb: "POST", body: (target, uid) => ({ target: target || "register", uid: uid || "" }) },
+  RegisterAccounts: { path: "register", verb: "POST", body: (count) => ({ count: Number(count) > 0 ? Number(count) : 1 }) },
+  StopRun: { path: "StopRun", verb: "POST" },
+  ClearLogs: { path: "ClearLogs", verb: "POST" },
 };
 
 async function httpInvoke(method, ...args) {
   const alias = HTTP_ALIAS[method];
-  let url = `${CONFIG.apiPrefix}/${method}`;
+  const url = `${CONFIG.apiPrefix}/${alias ? alias.path : method}`;
   let payload;
-  if (alias) url = `${CONFIG.apiPrefix}/${alias.path}`;
-  if (alias && alias.verb === "POST") payload = {};
+  if (alias && typeof alias.body === "function") payload = alias.body(...args);
+  else if (alias && alias.verb === "POST") payload = {};
   else if (args.length === 1) payload = args[0];
   else if (args.length > 1) payload = { section: args[0], values: args[1] };
+  const verb = alias && alias.verb ? alias.verb : (payload === undefined ? "GET" : "POST");
   const res = await fetch(url, {
-    method: payload === undefined ? "GET" : "POST",
+    method: verb,
     headers: { "Content-Type": "application/json" },
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
@@ -492,6 +496,12 @@ async function loadFolder() {
 }
 
 async function browseFolder() {
+  if (bridge.kind !== "wails" && bridge.kind !== "mock") {
+    setStatus("msg-folder-status", "Folder picker is only available in the desktop app. Type the folder path here, then click Load Folder.", "error");
+    const input = byId("msg-folder-path");
+    if (input && typeof input.focus === "function") input.focus();
+    return;
+  }
   try {
     const dir = await bridge.invoke("BrowseMessageFolder");
     const picked = String(dir || "").trim();
