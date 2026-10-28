@@ -710,6 +710,7 @@ tr:last-child td { border-bottom: 0; }
                   <option value="error">Errors</option>
                 </select>
                 <button type="button" id="log-clear" class="secondary-button">Clear</button>
+                <span id="log-clear-status" class="hint-text" role="status"></span>
               </div>
             </div>
             <div id="log-list" class="log-list" aria-live="polite"></div>
@@ -737,8 +738,9 @@ const FILES = ["interests", "proxies", "chat", "snaps", "telegram"];
 
 let STATE = {};
 const selected = new Set();       // checked account uids, survives re-render
-let logClearedAt = 0;             // number of log lines hidden by Clear
 let lastLogText = "";
+const dirtySettings = new Set();  // unsaved Setting/run-mode edits survive polling
+let applyingServerSettings = false;
 
 function esc(s) {
   return String(s == null ? "" : s)
@@ -881,7 +883,7 @@ const BADGE = { error: "ERR", reg: "REG", skip: "SKIP", out: "OUT", in: "IN", sy
 
 function renderLogs(text) {
   const lines = text ? text.replace(/\r\n/g, "\n").split("\n").filter((l) => l.trim() !== "") : [];
-  const visible = lines.slice(Math.min(logClearedAt, lines.length));
+  const visible = lines;
   const filter = $("log-filter").value;
   $("log-empty").hidden = visible.length > 0;
 
@@ -915,10 +917,22 @@ async function refreshLogs() {
   } catch (e) { /* dashboard offline */ }
 }
 
-$("log-clear").addEventListener("click", () => {
-  const lines = lastLogText ? lastLogText.split("\n").filter((l) => l.trim() !== "") : [];
-  logClearedAt = lines.length;
-  renderLogs(lastLogText);
+$("log-clear").addEventListener("click", async () => {
+  const button = $("log-clear");
+  button.disabled = true;
+  try {
+    const r = await api("ClearLogs", {});
+    if (!r || r.ok === false) throw new Error((r && r.error) || "clear failed");
+    lastLogText = "";
+    renderLogs("");
+    setStatus("log-clear-status", "cleared", "ok");
+    await refreshLogs();
+  } catch (e) {
+    setStatus("log-clear-status", e.message || "clear failed", "error");
+  } finally {
+    button.disabled = false;
+    setTimeout(() => setStatus("log-clear-status", ""), 3000);
+  }
 });
 $("log-filter").addEventListener("change", () => renderLogs(lastLogText));
 
@@ -933,8 +947,15 @@ $("save-settings").addEventListener("click", async () => {
   // "proxytype" is the legacy key; the canonical one (also written by the
   // desktop UI) is proxy_scheme, so both stay in sync.
   if (body.proxytype) body.proxy_scheme = body.proxytype;
-  const r = await api("settings", body);
-  setStatus("settings-status", r.ok ? "saved \u2713" : (r.error || "save failed"), r.ok ? "ok" : "error");
+  try {
+    const r = await api("settings", body);
+    if (!r || r.ok === false) throw new Error((r && r.error) || "save failed");
+    for (const k of SETTINGS_KEYS) dirtySettings.delete(k);
+    setStatus("settings-status", "saved \u2713", "ok");
+    await refresh();
+  } catch (e) {
+    setStatus("settings-status", e.message || "save failed", "error");
+  }
   setTimeout(() => setStatus("settings-status", ""), 3000);
 });
 
@@ -1095,6 +1116,7 @@ $("browserbtn").addEventListener("click", async () => {
 $("start-bots").addEventListener("click", async () => {
   const mode = document.querySelector('input[name="run-mode"]:checked').value;
   const r = await api("bots/start", { uids: [...selected], mode });
+  if (r && r.ok) dirtySettings.delete("run-mode");
   setStatus("bmsg", r.message || "", r.ok ? "ok" : "error");
   refresh();
 });
@@ -1183,28 +1205,52 @@ async function refresh() {
 }
 
 let formsFilled = false;
-function fillForms() {
-  const s = STATE.settings || {};
+
+function markSettingDirty(key) {
+  if (!applyingServerSettings && (SETTINGS_KEYS.includes(key) || key === "run-mode")) {
+    dirtySettings.add(key);
+  }
+}
+
+function bindSettingsDirtyTracking() {
   for (const k of SETTINGS_KEYS) {
     const el = $("set-" + k);
-    if (!el || el === document.activeElement) continue;
-    if (!formsFilled) {
+    if (!el) continue;
+    const handler = () => markSettingDirty(k);
+    el.addEventListener("input", handler);
+    el.addEventListener("change", handler);
+  }
+  document.querySelectorAll('input[name="run-mode"]').forEach((radio) => {
+    radio.addEventListener("change", () => markSettingDirty("run-mode"));
+  });
+}
+
+function fillForms() {
+  const s = STATE.settings || {};
+  applyingServerSettings = true;
+  try {
+    for (const k of SETTINGS_KEYS) {
+      const el = $("set-" + k);
+      if (!el || el === document.activeElement || dirtySettings.has(k)) continue;
       if (BOOL_KEYS.has(k)) el.checked = ["1", "true", "yes", "on"].includes(String(s[k] || "").toLowerCase());
       else if (k === "proxytype") el.value = s.proxy_scheme || s.proxytype || "http";
       else el.value = s[k] || "";
     }
-  }
-  if (!formsFilled) {
-    // the run-mode radio follows the saved bot_mode, which is the same
-    // setting the desktop UI's StartRun() reads
-    const mode = s.bot_mode === "ws" ? "ws" : "visible";
-    const radio = document.querySelector(`input[name="run-mode"][value="${mode}"]`);
-    if (radio) {
-      radio.checked = true;
-      radio.dispatchEvent(new Event("change"));
+    if (!dirtySettings.has("run-mode")) {
+      // the run-mode radio follows the saved bot_mode, which is the same
+      // setting the desktop UI's StartRun() reads
+      const mode = s.bot_mode === "ws" ? "ws" : "visible";
+      const radio = document.querySelector(`input[name="run-mode"][value="${mode}"]`);
+      const active = document.activeElement;
+      if (radio && !radio.checked && !(active && active.name === "run-mode")) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event("change"));
+      }
     }
+  } finally {
+    applyingServerSettings = false;
+    formsFilled = true;
   }
-  formsFilled = true;
 }
 
 async function loadFiles() {
@@ -1216,6 +1262,7 @@ async function loadFiles() {
   }
 }
 
+bindSettingsDirtyTracking();
 loadFiles();
 loadMessageSettings();
 refresh();

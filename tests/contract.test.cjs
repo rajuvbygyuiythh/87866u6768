@@ -17,6 +17,7 @@ const PATHS = {
   mockJs: path.join(ROOT, "src", "frontend", "dist", "js", "mock-backend.js"),
   goFiles: [path.join(ROOT, "src", "app_contract.go"), path.join(ROOT, "src", "app_desktop.go")],
   html: path.join(ROOT, "src", "frontend", "dist", "index.html"),
+  legacyHtml: path.join(ROOT, "src", "internal", "dash", "index.html"),
 };
 
 const read = (file) => fs.readFileSync(file, "utf8");
@@ -57,6 +58,7 @@ const appJs = read(PATHS.appJs);
 const mockJs = read(PATHS.mockJs);
 const goSrc = PATHS.goFiles.map(read).join("\n");
 const html = read(PATHS.html);
+const legacyHtml = read(PATHS.legacyHtml);
 
 test("every method called by the UI exists in the mock", () => {
   const mock = mockMethods(mockJs);
@@ -377,4 +379,22 @@ test("Backend unavailable banner can retry into HTTP", async () => {
   assert.equal(api.bridge.kind, "http");
   assert.equal(unavailableBanner.hidden, true);
   assert.match(homeStatus.textContent, /Backend connected/);
+});
+
+// ---------------------------------------------------------------------------
+// Legacy dashboard parity (Step 5)
+// ---------------------------------------------------------------------------
+test("legacy dashboard Clear uses the shared server-side ClearLogs route", () => {
+  assert.match(legacyHtml, /api\("ClearLogs", \{\}\)/);
+  assert.doesNotMatch(legacyHtml, /logClearedAt/);
+  assert.match(legacyHtml, /id="log-clear-status"/);
+});
+
+test("legacy settings polling preserves dirty fields and clears them after save", () => {
+  assert.match(legacyHtml, /const dirtySettings = new Set\(\)/);
+  assert.match(legacyHtml, /dirtySettings\.has\(k\)/);
+  assert.match(legacyHtml, /for \(const k of SETTINGS_KEYS\) dirtySettings\.delete\(k\)/);
+  assert.match(legacyHtml, /dirtySettings\.delete\("run-mode"\)/);
+  assert.match(legacyHtml, /bindSettingsDirtyTracking\(\);/);
+  assert.match(legacyHtml, /applyingServerSettings/);
 });

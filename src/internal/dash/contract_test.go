@@ -1,6 +1,10 @@
 package dash
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -158,5 +162,71 @@ func TestSaveSectionSetupFullSaveStillWorks(t *testing.T) {
 		if got := setup[key]; got != expected {
 			t.Errorf("setup[%s] = %#v, want %#v", key, got, expected)
 		}
+	}
+}
+
+// Clear must truncate both the legacy flat buffer and the structured kit ring.
+func TestClearLogTruncatesBothBuffersAndKeepsVersionsMoving(t *testing.T) {
+	a := Open(t.TempDir())
+	a.appendLog("12:00:00 [system] before clear")
+
+	before := a.LogsAfter(0)
+	beforeVersion := before["version"].(int)
+	if got := len(before["entries"].([]LogEntry)); got != 1 {
+		t.Fatalf("entries before clear = %d, want 1", got)
+	}
+
+	a.ClearLog()
+	after := a.LogsAfter(0)
+	if after["cleared"] != true {
+		t.Fatalf("cleared flag after ClearLog = %#v, want true", after["cleared"])
+	}
+	if got := len(after["entries"].([]LogEntry)); got != 0 {
+		t.Fatalf("entries after clear = %d, want 0", got)
+	}
+	if len(a.logBuf) != 0 {
+		t.Fatalf("legacy log buffer after clear = %d lines, want 0", len(a.logBuf))
+	}
+
+	a.appendLog("12:00:01 [system] after clear")
+	next := a.LogsAfter(beforeVersion)
+	entries := next["entries"].([]LogEntry)
+	if len(entries) != 1 || entries[0].ID <= beforeVersion {
+		t.Fatalf("post-clear entries = %#v, want one entry newer than %d", entries, beforeVersion)
+	}
+}
+
+// The legacy web Clear button and the desktop bridge must hit the same route.
+func TestClearLogsHTTPRouteMatchesDesktopContract(t *testing.T) {
+	a := Open(t.TempDir())
+	a.appendLog("12:00:00 [system] before clear")
+	mux := a.routes()
+
+	clearReq := httptest.NewRequest(http.MethodPost, "/api/ClearLogs", strings.NewReader("{}"))
+	clearRec := httptest.NewRecorder()
+	mux.ServeHTTP(clearRec, clearReq)
+	if clearRec.Code != http.StatusOK {
+		t.Fatalf("POST /api/ClearLogs status = %d, want 200", clearRec.Code)
+	}
+	var clearBody map[string]any
+	if err := json.Unmarshal(clearRec.Body.Bytes(), &clearBody); err != nil {
+		t.Fatalf("decode ClearLogs response: %v", err)
+	}
+	if clearBody["ok"] != true {
+		t.Fatalf("ClearLogs response = %#v, want ok=true", clearBody)
+	}
+
+	logsReq := httptest.NewRequest(http.MethodGet, "/api/logs", nil)
+	logsRec := httptest.NewRecorder()
+	mux.ServeHTTP(logsRec, logsReq)
+	if logsRec.Code != http.StatusOK {
+		t.Fatalf("GET /api/logs status = %d, want 200", logsRec.Code)
+	}
+	var logsBody map[string]string
+	if err := json.Unmarshal(logsRec.Body.Bytes(), &logsBody); err != nil {
+		t.Fatalf("decode logs response: %v", err)
+	}
+	if logsBody["content"] != "" {
+		t.Fatalf("legacy logs after ClearLogs = %q, want empty", logsBody["content"])
 	}
 }
