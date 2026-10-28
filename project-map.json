@@ -276,6 +276,35 @@
         "node --test tests/project-manager.test.cjs",
         "node tools/project-manager.cjs verify"
       ]
+    },
+    "storage-reliability": {
+      "description": "Step A: atomic state-file writes and Store mutex. Source and tests only; no runtime data, credentials, or sessions.",
+      "keywords": ["store", "atomic", "mutex", "settings", "concurrent", "rename", "durability", "state"],
+      "files": [
+        {
+          "path": "src/internal/store/store.go",
+          "role": "Store state files: RWMutex, atomic replacements, serialized appends",
+          "editable": true,
+          "anchors": ["type Store struct", "func (s *Store) SaveSettings(", "func (s *Store) appendRecord("]
+        },
+        {
+          "path": "src/internal/store/atomic.go",
+          "role": "Same-directory temp file, sync, close, rename; cleanup on failure",
+          "editable": true,
+          "anchors": ["func writeFileAtomic("]
+        },
+        {
+          "path": "src/internal/store/store_test.go",
+          "role": "Atomic write, permission, concurrency, merge, and round-trip regression tests",
+          "editable": true,
+          "anchors": ["TestWriteFileAtomicReplacesContentAndCleansTemp", "TestStoreConcurrentSettingsKeepEveryUpdate"]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./internal/store",
+        "cd src && go test -race ./internal/store",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
+      ]
     }
   }
 }

@@ -15,10 +15,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
+// Store owns the on-disk state files. It must not be copied after first use;
+// the unexported mutex serializes read-modify-write operations and protects
+// readers from observing a replacement mid-write.
 type Store struct {
 	Dir string
+	mu  sync.RWMutex
 }
 
 func Open(dir string) *Store {
@@ -36,7 +41,9 @@ func (s *Store) DirPath(rel string) string { return filepath.Join(s.Dir, rel) }
 
 // ReadJSON unmarshals a JSON file from the data directory into v.
 func (s *Store) ReadJSON(name string, v any) bool {
+	s.mu.RLock()
 	data, err := os.ReadFile(s.path(name))
+	s.mu.RUnlock()
 	if err != nil {
 		return false
 	}
@@ -49,12 +56,21 @@ func (s *Store) WriteJSON(name string, v any) bool {
 	if err != nil {
 		return false
 	}
-	return os.WriteFile(s.path(name), data, 0o644) == nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return writeFileAtomic(s.path(name), data, 0o644) == nil
 }
 
 // ---- settings ---------------------------------------------------------------
 
 func (s *Store) Settings() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.settingsLocked()
+}
+
+// settingsLocked parses settings.txt. Callers must hold at least a read lock.
+func (s *Store) settingsLocked() map[string]string {
 	out := map[string]string{}
 	data, err := os.ReadFile(s.path("settings.txt"))
 	if err != nil {
@@ -72,6 +88,8 @@ func (s *Store) Settings() map[string]string {
 }
 
 func (s *Store) SaveSettings(updates map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var lines []string
 	if data, err := os.ReadFile(s.path("settings.txt")); err == nil {
 		lines = strings.Split(string(data), "\n")
@@ -95,7 +113,7 @@ func (s *Store) SaveSettings(updates map[string]string) {
 			out = append(out, k+"="+v)
 		}
 	}
-	_ = os.WriteFile(s.path("settings.txt"), []byte(strings.Join(out, "\n")), 0o644)
+	_ = writeFileAtomic(s.path("settings.txt"), []byte(strings.Join(out, "\n")), 0o644)
 }
 
 func (s *Store) Get(key, def string) string {
@@ -141,6 +159,8 @@ type Account struct {
 }
 
 func (s *Store) Accounts() []Account {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	var out []Account
 	data, err := os.ReadFile(s.path("registered_accounts.txt"))
 	if err != nil {
@@ -165,24 +185,30 @@ func (s *Store) Accounts() []Account {
 }
 
 func (s *Store) AppendAccount(uid, email, token string) {
-	f, err := os.OpenFile(s.path("registered_accounts.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	_, _ = f.WriteString(uid + "|" + email + "|" + token + "\n")
+	s.appendRecord("registered_accounts.txt", uid+"|"+email+"|"+token)
 }
 
 func (s *Store) AppendCreds(username, password, uid, token string) {
-	f, err := os.OpenFile(s.path("registered_creds.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	s.appendRecord("registered_creds.txt", username+"|"+password+"|"+uid+"|"+token)
+}
+
+// appendRecord adds one line to an append-only record file. O_APPEND keeps
+// separate processes sharing the data directory from overwriting each other;
+// the mutex serializes goroutines inside this process.
+func (s *Store) appendRecord(name, record string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := os.OpenFile(s.path(name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	_, _ = f.WriteString(username + "|" + password + "|" + uid + "|" + token + "\n")
+	_, _ = f.WriteString(record + "\n")
 }
 
 func (s *Store) DeleteAccount(uid string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	data, err := os.ReadFile(s.path("registered_accounts.txt"))
 	if err != nil {
 		return
@@ -193,17 +219,23 @@ func (s *Store) DeleteAccount(uid string) {
 			kept = append(kept, line)
 		}
 	}
-	_ = os.WriteFile(s.path("registered_accounts.txt"), []byte(strings.Join(kept, "\n")), 0o644)
+	if err := writeFileAtomic(s.path("registered_accounts.txt"), []byte(strings.Join(kept, "\n")), 0o644); err != nil {
+		return
+	}
 	_ = os.Remove(s.path("sessions/" + uid + ".json"))
 }
 
 // ---- sessions ----------------------------------------------------------------
 
 func (s *Store) SaveSession(uid, rawUserJSON string) {
-	_ = os.WriteFile(s.path("sessions/"+uid+".json"), []byte(rawUserJSON), 0o644)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = writeFileAtomic(s.path("sessions/"+uid+".json"), []byte(rawUserJSON), 0o644)
 }
 
 func (s *Store) Session(uid string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	data, err := os.ReadFile(s.path("sessions/" + uid + ".json"))
 	if err != nil {
 		return "", false
@@ -215,6 +247,8 @@ func (s *Store) Session(uid string) (string, bool) {
 // (sessions/<uid>.storage.json) — the payload the browser replays when a
 // profile dir was lost or rejected (session injection).
 func (s *Store) SessionStorage(uid string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	data, err := os.ReadFile(s.path("sessions/" + uid + ".storage.json"))
 	if err != nil {
 		return "", false
@@ -264,6 +298,8 @@ func (s *Store) ReadFile(name string) string {
 	if !ok {
 		return ""
 	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	data, _ := os.ReadFile(s.path(rel))
 	return string(data)
 }
@@ -273,7 +309,9 @@ func (s *Store) WriteFile(name, content string) bool {
 	if !ok {
 		return false
 	}
-	return os.WriteFile(s.path(rel), []byte(content), 0o644) == nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return writeFileAtomic(s.path(rel), []byte(content), 0o644) == nil
 }
 
 // LoadList reads a # -commented list file (used for snaps/telegram/interests).
@@ -300,6 +338,8 @@ func (s *Store) ChatLines() []string {
 
 // Tail returns the last n lines of a log file.
 func (s *Store) Tail(name string, n int) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	data, err := os.ReadFile(s.path(name))
 	if err != nil {
 		return ""
