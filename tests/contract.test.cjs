@@ -17,6 +17,7 @@ const PATHS = {
   mockJs: path.join(ROOT, "src", "frontend", "dist", "js", "mock-backend.js"),
   goFiles: [path.join(ROOT, "src", "app_contract.go"), path.join(ROOT, "src", "app_desktop.go")],
   html: path.join(ROOT, "src", "frontend", "dist", "index.html"),
+  styles: path.join(ROOT, "src", "frontend", "dist", "styles.css"),
   legacyHtml: path.join(ROOT, "src", "internal", "dash", "index.html"),
 };
 
@@ -58,6 +59,7 @@ const appJs = read(PATHS.appJs);
 const mockJs = read(PATHS.mockJs);
 const goSrc = PATHS.goFiles.map(read).join("\n");
 const html = read(PATHS.html);
+const styles = read(PATHS.styles);
 const legacyHtml = read(PATHS.legacyHtml);
 
 test("every method called by the UI exists in the mock", () => {
@@ -412,4 +414,43 @@ test("legacy message save checks each file write before saving mode settings", (
   assert.match(legacyHtml, /if \(!fr \|\| fr\.ok === false\) throw new Error/);
   assert.match(legacyHtml, /if \(!r \|\| r\.ok === false\) throw new Error/);
   assert.match(legacyHtml, /setStatus\("message-save-status", e\.message \|\| "save failed", "error"\);/);
+});
+
+// ---------------------------------------------------------------------------
+// Desktop accessibility and UX polish (Step F)
+// ---------------------------------------------------------------------------
+test("desktop navigation uses ARIA tabs with labelled panels", () => {
+  assert.match(html, /<nav[^>]*role="tablist"/);
+  for (const tab of ["home", "proxy", "messages", "browser", "settings", "logs"]) {
+    assert.match(html, new RegExp('id="tab-' + tab + '"[^>]*role="tab"[^>]*aria-controls="panel-' + tab + '"'));
+    assert.match(html, new RegExp('id="panel-' + tab + '"[^>]*role="tabpanel"[^>]*aria-labelledby="tab-' + tab + '"'));
+  }
+});
+
+test("activateTab keeps ARIA selected state, roving tabindex, and hidden panels in sync", () => {
+  assert.match(appJs, /btn\.setAttribute\("aria-selected", selected \? "true" : "false"\);/);
+  assert.match(appJs, /btn\.tabIndex = selected \? 0 : -1;/);
+  assert.match(appJs, /panel\.hidden = !active;/);
+});
+
+test("tab keyboard navigation supports arrows/Home/End and moves focus", () => {
+  assert.match(appJs, /function bindTabNavigation\(\)/);
+  for (const key of ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"]) {
+    assert.ok(appJs.includes(key), "missing key: " + key);
+  }
+  assert.match(appJs, /event\.preventDefault\(\);/);
+  assert.match(appJs, /btn\.focus\(\)/);
+});
+
+test("focus-visible, skip link, hidden panels, and reduced-motion styles are present", () => {
+  assert.match(styles, /:focus-visible/);
+  assert.match(styles, /\.skip-link/);
+  assert.match(styles, /\[hidden\][^{]*\{[^}]*display:\s*none\s*!important/);
+  assert.match(styles, /prefers-reduced-motion: reduce/);
+});
+
+test("live status and log regions are labelled for assistive tech", () => {
+  assert.match(html, /id="msg-folder-status"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /id="logs-list"[^>]*role="log"[^>]*aria-label="Live logs"/);
+  assert.match(html, /id="toast-wrap"[^>]*aria-atomic="false"/);
 });

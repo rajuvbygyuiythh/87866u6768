@@ -660,6 +660,76 @@
         }
       ]
     }
+,
+    "frontend-a11y-ux": {
+      "description": "Step F: desktop frontend accessibility and UX polish: ARIA tabs, keyboard navigation, focus/reduced-motion, labelled live regions, and regression tests. No runtime data.",
+      "keywords": [
+        "accessibility",
+        "a11y",
+        "keyboard",
+        "focus",
+        "aria",
+        "tabs",
+        "ux",
+        "reduced motion",
+        "screen reader"
+      ],
+      "checks": [
+        "node --check src/frontend/dist/app.js",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs",
+        "./pm verify --scope frontend-a11y-ux"
+      ],
+      "files": [
+        {
+          "path": "src/frontend/dist/index.html",
+          "role": "ARIA tablist/tab/tabpanel, skip link, labelled live regions",
+          "editable": true,
+          "anchors": [
+            "role=\"tablist\"",
+            "id=\"main-content\"",
+            "role=\"log\""
+          ]
+        },
+        {
+          "path": "src/frontend/dist/app.js",
+          "role": "Roving tabindex, hidden panels, keyboard tab navigation",
+          "editable": true,
+          "anchors": [
+            "function bindTabNavigation",
+            "aria-selected",
+            "panel.hidden = !active"
+          ]
+        },
+        {
+          "path": "src/frontend/dist/styles.css",
+          "role": "Focus-visible, skip link, hidden panels, reduced motion",
+          "editable": true,
+          "anchors": [
+            ":focus-visible",
+            ".skip-link",
+            "prefers-reduced-motion: reduce"
+          ]
+        },
+        {
+          "path": "tests/contract.test.cjs",
+          "role": "Desktop accessibility regression tests",
+          "editable": true,
+          "anchors": [
+            "desktop navigation uses ARIA tabs with labelled panels",
+            "tab keyboard navigation supports arrows/Home/End and moves focus"
+          ]
+        },
+        {
+          "path": "CHANGELOG.md",
+          "role": "Record accessibility/UX polish",
+          "editable": true,
+          "anchors": [
+            "Keyboard-accessible desktop tabs",
+            "Visible focus indicators"
+          ]
+        }
+      ]
+    }
 
   }
 }

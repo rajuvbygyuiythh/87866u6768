@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="shell visible">
     <!-- ==================================================================
          SIDEBAR — brand + 6 flat tabs (subnav system removed).
@@ -20,13 +21,13 @@
         </div>
       </div>
 
-      <nav class="nav" aria-label="Main sections">
-        <button class="nav-button active" data-tab="home">Home</button>
-        <button class="nav-button" data-tab="proxy">Proxy</button>
-        <button class="nav-button" data-tab="messages">Messages</button>
-        <button class="nav-button" data-tab="browser">Browser</button>
-        <button class="nav-button" data-tab="settings">Settings</button>
-        <button class="nav-button" data-tab="logs">Logs</button>
+      <nav class="nav" aria-label="Main sections" role="tablist">
+        <button id="tab-home" class="nav-button active" data-tab="home" type="button" role="tab" aria-selected="true" aria-controls="panel-home" tabindex="0">Home</button>
+        <button id="tab-proxy" class="nav-button" data-tab="proxy" type="button" role="tab" aria-selected="false" aria-controls="panel-proxy" tabindex="-1">Proxy</button>
+        <button id="tab-messages" class="nav-button" data-tab="messages" type="button" role="tab" aria-selected="false" aria-controls="panel-messages" tabindex="-1">Messages</button>
+        <button id="tab-browser" class="nav-button" data-tab="browser" type="button" role="tab" aria-selected="false" aria-controls="panel-browser" tabindex="-1">Browser</button>
+        <button id="tab-settings" class="nav-button" data-tab="settings" type="button" role="tab" aria-selected="false" aria-controls="panel-settings" tabindex="-1">Settings</button>
+        <button id="tab-logs" class="nav-button" data-tab="logs" type="button" role="tab" aria-selected="false" aria-controls="panel-logs" tabindex="-1">Logs</button>
       </nav>
 
       <div class="sidebar-footer">
@@ -41,9 +42,9 @@
       </div>
     </aside>
 
-    <main class="main">
+    <main class="main" id="main-content" tabindex="-1">
       <!-- ============================== HOME ============================== -->
-      <section class="tab-panel active" data-panel="home">
+      <section id="panel-home" class="tab-panel active" data-panel="home" role="tabpanel" aria-labelledby="tab-home">
         <header class="panel-header">
           <div>
             <div class="title-row">
@@ -66,17 +67,17 @@
         </header>
 
         <!-- Explicit demo only: open the page with ?demo=1. -->
-        <div class="demo-banner" id="demo-banner" hidden>
+        <div class="demo-banner" id="demo-banner" role="status" aria-live="polite" hidden>
           <span><strong>Demo backend active.</strong> The UI is running on in-memory mock data — no Go or HTTP backend connected. Opt in with <code>?demo=1</code>.</span>
           <button id="demo-hide" type="button">Hide</button>
         </div>
 
-        <div class="backend-unavailable-banner" id="backend-unavailable-banner" hidden>
+        <div class="backend-unavailable-banner" id="backend-unavailable-banner" role="alert" hidden>
           <span><strong>Backend unavailable.</strong> Start the Go server or desktop app, then click Retry. For UI-only demo, open with <code>?demo=1</code>.</span>
           <button id="backend-retry" type="button">Retry</button>
         </div>
 
-        <div class="home-stats" aria-label="Fleet status">
+        <div class="home-stats" role="group" aria-label="Fleet status">
           <div class="stat-capsule"><span>Total Accounts</span><strong id="stat-accounts">0</strong></div>
           <div class="stat-capsule"><span>Running</span><strong id="stat-running">0</strong></div>
           <div class="stat-capsule"><span>Chats</span><strong id="stat-chats">0</strong></div>
@@ -114,7 +115,7 @@
         </section>
       </section>
 <!-- ============================== PROXY ============================== -->
-      <section class="tab-panel" data-panel="proxy">
+      <section id="panel-proxy" class="tab-panel" data-panel="proxy" role="tabpanel" aria-labelledby="tab-proxy" hidden>
         <header class="panel-header">
           <div>
             <div class="title-row">
@@ -158,7 +159,7 @@
         </section>
       </section>
 <!-- ============================= MESSAGES ============================ -->
-      <section class="tab-panel" data-panel="messages">
+      <section id="panel-messages" class="tab-panel" data-panel="messages" role="tabpanel" aria-labelledby="tab-messages" hidden>
         <header class="panel-header">
           <div>
             <div class="title-row">
@@ -175,8 +176,8 @@
         <section class="card">
           <div class="step-head"><span class="step-num">2</span><h2>Strategy</h2></div>
 
-          <div class="chat-mode-card">
-            <span class="mode-label">Strategy</span>
+          <div class="chat-mode-card" role="radiogroup" aria-labelledby="msg-strategy-label">
+            <span class="mode-label" id="msg-strategy-label">Strategy</span>
             <div class="mode-options">
               <label class="mode-option" id="msg-option-single">
                 <input type="radio" name="msg-strategy" value="single" id="msg-strategy-single" checked>
@@ -210,7 +211,7 @@
               <button id="msg-browse-folder" class="secondary-button" type="button">Browse…</button>
               <button id="msg-load-folder" class="secondary-button" type="button">Load Folder</button>
               <button id="msg-clean-folder" class="danger-button" type="button">Clean Loaded</button>
-              <span id="msg-folder-status" class="status-line">0 sequences loaded</span>
+              <span id="msg-folder-status" class="status-line" role="status" aria-live="polite">0 sequences loaded</span>
             </div>
           </div>
 
@@ -257,7 +258,7 @@
         </section>
       </section>
 <!-- ============================== BROWSER ============================== -->
-      <section class="tab-panel" data-panel="browser">
+      <section id="panel-browser" class="tab-panel" data-panel="browser" role="tabpanel" aria-labelledby="tab-browser" hidden>
         <header class="panel-header">
           <div>
             <div class="title-row">
@@ -282,7 +283,7 @@
       </section>
 
       <!-- ============================== SETTINGS ============================== -->
-      <section class="tab-panel" data-panel="settings">
+      <section id="panel-settings" class="tab-panel" data-panel="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
         <header class="panel-header">
           <div>
             <div class="title-row">
@@ -326,7 +327,7 @@
         </section>
       </section>
 <!-- ================================ LOGS ================================ -->
-      <section class="tab-panel" data-panel="logs">
+      <section id="panel-logs" class="tab-panel" data-panel="logs" role="tabpanel" aria-labelledby="tab-logs" hidden>
         <header class="panel-header">
           <div>
             <div class="title-row">
@@ -353,14 +354,14 @@
               <button id="logs-clear" class="secondary-button" type="button">Clear</button>
             </div>
           </div>
-          <div id="logs-list" class="log-list" aria-live="polite"></div>
+          <div id="logs-list" class="log-list" role="log" aria-label="Live logs" aria-live="polite" aria-atomic="false"></div>
           <p id="logs-empty" class="hint-text">No activity yet. Press Start on Home.</p>
         </section>
       </section>
     </main>
   </div>
 
-  <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
+  <div class="toast-wrap" id="toast-wrap" aria-live="polite" aria-atomic="false"></div>
 
   <!-- Demo backend is loaded dynamically only for explicit ?demo=1 opt-in. -->
   <script src="./app.js"></script>

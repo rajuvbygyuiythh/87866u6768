@@ -16,6 +16,9 @@ All notable changes to this clean source branch are documented here.
 - HTTP hardening tests for loopback Host/Origin guards, body limits, and graceful
   shutdown.
 - Documentation for architecture, run modes, privacy, CI, and troubleshooting.
+- Keyboard-accessible desktop tabs with ARIA tab semantics, roving tabindex,
+  arrow/Home/End navigation, and a skip-to-content link.
+- Visible focus indicators and reduced-motion support for the desktop UI.
 
 ### Changed
 
@@ -28,6 +31,8 @@ All notable changes to this clean source branch are documented here.
 - Go source formatting is normalized so `gofmt -l .` is a CI gate.
 - GitHub Actions use current major versions and the Go module cache points at
   `src/go.sum`.
+- Desktop status/log regions are labelled for assistive technology, and inactive
+  tab panels are hidden from the accessibility tree.
 
 ### Fixed
 

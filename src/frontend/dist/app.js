@@ -251,12 +251,41 @@ function subscribeEvents() {
 function activateTab(tab) {
   state.tab = tab;
   document.querySelectorAll(".nav-button").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.tab === tab);
+    const selected = btn.dataset.tab === tab;
+    btn.classList.toggle("active", selected);
+    btn.setAttribute("aria-selected", selected ? "true" : "false");
+    btn.tabIndex = selected ? 0 : -1;
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.dataset.panel === tab);
+    const active = panel.dataset.panel === tab;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
   });
   if (tab === "logs") refreshLogs();
+}
+
+function bindTabNavigation() {
+  const buttons = Array.from(document.querySelectorAll(".nav-button"));
+  if (!buttons.length) return;
+  const activate = (btn) => {
+    if (!btn) return;
+    activateTab(btn.dataset.tab);
+    if (typeof btn.focus === "function") btn.focus();
+  };
+  buttons.forEach((btn, index) => {
+    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+    btn.addEventListener("keydown", (event) => {
+      const key = event.key;
+      let next = null;
+      if (key === "ArrowDown" || key === "ArrowRight") next = buttons[(index + 1) % buttons.length];
+      else if (key === "ArrowUp" || key === "ArrowLeft") next = buttons[(index - 1 + buttons.length) % buttons.length];
+      else if (key === "Home") next = buttons[0];
+      else if (key === "End") next = buttons[buttons.length - 1];
+      else return;
+      event.preventDefault();
+      activate(next);
+    });
+  });
 }
 
 function renderRunning() {
@@ -777,9 +806,7 @@ function bindActions() {
 }
 
 async function bootstrap() {
-  document.querySelectorAll(".nav-button").forEach((btn) => {
-    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
-  });
+  bindTabNavigation();
   bindForms();
   bindActions();
   activateTab("home");
