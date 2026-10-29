@@ -1,0 +1,735 @@
+{
+  "version": 1,
+  "project": "thundr-go",
+  "default_scope": "desktop-ui",
+  "privacy": {
+    "access": "explicit-allowlist-only",
+    "archives": "never-open",
+    "runtime_data": "never-open",
+    "symlinks": "reject",
+    "note": "Only the source files listed below are readable by the helper. Deny rules override the allowlist."
+  },
+  "scopes": {
+    "desktop-ui": {
+      "description": "Desktop Console markup, behavior, styles, mock parity, and UI contract tests. No bot runtime changes.",
+      "keywords": ["desktop", "ui", "frontend", "tab", "button", "form", "theme", "layout", "logs", "console"],
+      "files": [
+        {
+          "path": "src/frontend/dist/index.html",
+          "role": "Desktop markup, panels, controls, and DOM ids",
+          "editable": true,
+          "anchors": ["data-panel=\"home\"", "data-panel=\"logs\"", "./app.js"]
+        },
+        {
+          "path": "src/frontend/dist/app.js",
+          "role": "Desktop state, bridge calls, rendering, event wiring, and startup",
+          "editable": true,
+          "anchors": ["function activateTab", "function applySnapshot", "function bindActions", "async function bootstrap"]
+        },
+        {
+          "path": "src/frontend/dist/styles.css",
+          "role": "Design tokens, layout, controls, themes, and responsive rules",
+          "editable": true,
+          "anchors": [":root", ".nav-button", ".tab-panel", "@media"]
+        },
+        {
+          "path": "src/frontend/dist/js/mock-backend.js",
+          "role": "Offline demo backend used when Wails and HTTP are unavailable",
+          "editable": true,
+          "anchors": ["async GetSnapshot(", "async SaveSettings(", "window.__consoleMock"]
+        },
+        {
+          "path": "tests/contract.test.cjs",
+          "role": "UI-to-mock-to-Go method parity, DOM ids, and source hygiene checks",
+          "editable": true,
+          "anchors": ["every method called by the UI exists in the mock", "every DOM id the JS uses exists in index.html"]
+        }
+      ],
+      "checks": [
+        "node --check src/frontend/dist/app.js",
+        "node --check src/frontend/dist/js/mock-backend.js",
+        "node --test tests/contract.test.cjs",
+        "node --test tests/project-manager.test.cjs"
+      ]
+    },
+    "dashboard-reliability": {
+      "description": "Approved five-step dashboard reliability fixes: partial settings saves, draft protection, HTTP parity, explicit demo mode, and legacy sync/clear. Source and tests only; no runtime data.",
+      "keywords": ["settings", "partial", "draft", "unsaved", "http", "route", "method", "demo", "sync", "clear", "reliability"],
+      "files": [
+        {
+          "path": "src/internal/dash/contract.go",
+          "role": "Shared settings sections and kit snapshot; partial setup save fix",
+          "editable": true,
+          "anchors": ["func (a *App) SaveSection(", "case \"setup\":"]
+        },
+        {
+          "path": "src/internal/dash/contract_test.go",
+          "role": "Go regression tests for settings-section behavior",
+          "editable": true,
+          "anchors": ["func TestSaveSectionProfile("]
+        },
+        {
+          "path": "src/internal/dash/dash.go",
+          "role": "HTTP routes and shared dashboard engine; route/method parity and clear semantics",
+          "editable": true,
+          "anchors": ["func (a *App) routes(", "POST /api/ClearLogs"]
+        },
+        {
+          "path": "src/internal/dash/index.html",
+          "role": "Legacy web dashboard; dirty-safe settings sync and server-side Clear",
+          "editable": true,
+          "anchors": ["let formsFilled = false;", "log-clear"]
+        },
+        {
+          "path": "src/frontend/dist/app.js",
+          "role": "Desktop bridge, draft tracking, backend resolution, and form saves",
+          "editable": true,
+          "anchors": ["const dirtyFields = new Set();", "async function httpInvoke(", "async function resolveBridge("]
+        },
+        {
+          "path": "src/frontend/dist/index.html",
+          "role": "Desktop markup for backend/demo/offline indicators",
+          "editable": true,
+          "anchors": ["backend-pill", "demo-banner"]
+        },
+        {
+          "path": "src/frontend/dist/styles.css",
+          "role": "Desktop indicator states using existing design tokens",
+          "editable": true,
+          "anchors": [":root", ".nav-button"]
+        },
+        {
+          "path": "src/frontend/dist/js/mock-backend.js",
+          "role": "Explicit opt-in demo backend; never a silent production fallback",
+          "editable": true,
+          "anchors": ["window.__consoleMock", "async SaveSettings("]
+        },
+        {
+          "path": "tests/contract.test.cjs",
+          "role": "UI/mock/Go parity, DOM ids, and HTTP route/method coverage",
+          "editable": true,
+          "anchors": ["every method called by the UI exists in the mock", "every DOM id the JS uses exists in index.html"]
+        }
+      ],
+      "checks": [
+        "node --check src/frontend/dist/app.js",
+        "node --check src/frontend/dist/js/mock-backend.js",
+        "node --test tests/contract.test.cjs",
+        "cd src && go test ./internal/dash"
+      ]
+    },
+    "desktop-contract": {
+      "description": "Read-only reference for the Wails methods and HTTP shapes behind the desktop UI.",
+      "keywords": ["binding", "contract", "snapshot", "savesettings", "wails", "http", "api", "method"],
+      "files": [
+        {
+          "path": "src/app_contract.go",
+          "role": "Thin DesktopApp wrappers for the desktop contract",
+          "editable": false,
+          "anchors": ["func (d *DesktopApp) GetSnapshot(", "func (d *DesktopApp) SaveSettings("]
+        },
+        {
+          "path": "src/app_desktop.go",
+          "role": "DesktopApp lifecycle and legacy bindings",
+          "editable": false,
+          "anchors": ["type DesktopApp struct", "func (d *DesktopApp) startup("]
+        },
+        {
+          "path": "src/internal/dash/contract.go",
+          "role": "Snapshot shaping, settings sections, log polling, and connection-test mapping",
+          "editable": false,
+          "anchors": ["func (a *App) ContractSnapshot(", "func (a *App) SaveSection("]
+        },
+        {
+          "path": "src/internal/dash/dash.go",
+          "role": "Dashboard engine and HTTP route reference; not a UI editing target",
+          "editable": false,
+          "anchors": ["func (a *App) routes(", "func (a *App) Serve("]
+        },
+        {
+          "path": "src/frontend/wailsjs/go/main/DesktopApp.js",
+          "role": "Generated Wails JavaScript bindings; regenerate rather than hand-edit",
+          "editable": false,
+          "anchors": ["export function GetSnapshot(", "export function SaveSettings("]
+        },
+        {
+          "path": "src/frontend/wailsjs/go/main/DesktopApp.d.ts",
+          "role": "Generated binding types",
+          "editable": false,
+          "anchors": ["GetSnapshot", "SaveSettings"]
+        },
+        {
+          "path": "tests/contract.test.cjs",
+          "role": "Method-parity and DOM-id gate",
+          "editable": false,
+          "anchors": ["bound Go surface is complete"]
+        }
+      ],
+      "checks": [
+        "node --test tests/contract.test.cjs",
+        "cd src && go test ./internal/dash"
+      ]
+    },
+    "desktop-shell": {
+      "description": "Read-only reference for desktop startup, flags, embedding, and packaging metadata.",
+      "keywords": ["window", "startup", "flags", "embed", "package", "server", "port", "wails"],
+      "files": [
+        {
+          "path": "src/main.go",
+          "role": "Entry point, server/desktop selection, embedded assets, and window options",
+          "editable": false,
+          "anchors": ["func main(", "func runDesktop(", "go:embed all:frontend/dist"]
+        },
+        {
+          "path": "src/app_desktop.go",
+          "role": "DesktopApp construction, startup, shutdown, and background serving",
+          "editable": false,
+          "anchors": ["func NewDesktopApp(", "func (d *DesktopApp) startup("]
+        },
+        {
+          "path": "src/wails.json",
+          "role": "Wails product and asset-directory configuration",
+          "editable": false,
+          "anchors": ["outputfilename", "assetdir"]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./...",
+        "cd src && go build ./..."
+      ]
+    },
+    "web-dashboard": {
+      "description": "Separate legacy web dashboard. Do not confuse this with frontend/dist.",
+      "keywords": ["web", "legacy", "dashboard", "http", "route", "browser-tab"],
+      "files": [
+        {
+          "path": "src/internal/dash/index.html",
+          "role": "Self-contained legacy web dashboard served at HTTP /",
+          "editable": false,
+          "anchors": ["<html", "<script"]
+        },
+        {
+          "path": "src/internal/dash/dash.go",
+          "role": "HTTP routes and dashboard engine",
+          "editable": false,
+          "anchors": ["func (a *App) routes(", "func (a *App) Serve("]
+        },
+        {
+          "path": "src/internal/dash/contract.go",
+          "role": "Kit-contract HTTP/Wails shared shapes",
+          "editable": false,
+          "anchors": ["func (a *App) ContractSnapshot("]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./internal/dash"
+      ]
+    },
+    "project-tooling": {
+      "description": "The scoped project manager, its tests, and its agent-facing guide.",
+      "keywords": ["manager", "mapping", "scope", "helper", "shortcut", "agent", "tooling"],
+      "files": [
+        {
+          "path": "project-map.json",
+          "role": "Explicit source allowlist, stable anchors, scope metadata, and suggested checks",
+          "editable": false,
+          "anchors": ["default_scope", "desktop-ui"]
+        },
+        {
+          "path": "tools/project-manager.cjs",
+          "role": "Dependency-free scoped find/read/preview-edit CLI",
+          "editable": false,
+          "anchors": ["function createManager(", "function main("]
+        },
+        {
+          "path": "pm",
+          "role": "POSIX shell shortcut for the project manager",
+          "editable": false,
+          "anchors": ["tools/project-manager.cjs"]
+        },
+        {
+          "path": "pm.cmd",
+          "role": "Windows shortcut for the project manager",
+          "editable": false,
+          "anchors": ["tools\\project-manager.cjs"]
+        },
+        {
+          "path": "tests/project-manager.test.cjs",
+          "role": "Privacy, path, anchor, search, edit-confirmation, and newline tests",
+          "editable": true,
+          "anchors": ["node:test", "project manager"]
+        },
+        {
+          "path": "PROJECT_MANAGER.md",
+          "role": "Human/agent workflow and command reference",
+          "editable": true,
+          "anchors": ["Quick start", "Privacy"]
+        },
+        {
+          "path": "AGENTS.md",
+          "role": "Repository privacy and scoping rules for coding agents",
+          "editable": true,
+          "anchors": ["project-map.json", "credential"]
+        }
+      ],
+      "checks": [
+        "node --test tests/project-manager.test.cjs",
+        "node tools/project-manager.cjs verify"
+      ]
+    },
+    "storage-reliability": {
+      "description": "Step A: atomic state-file writes and Store mutex. Source and tests only; no runtime data, credentials, or sessions.",
+      "keywords": ["store", "atomic", "mutex", "settings", "concurrent", "rename", "durability", "state"],
+      "files": [
+        {
+          "path": "src/internal/store/store.go",
+          "role": "Store state files: RWMutex, atomic replacements, serialized appends",
+          "editable": true,
+          "anchors": ["type Store struct", "func (s *Store) SaveSettings(", "func (s *Store) appendRecord("]
+        },
+        {
+          "path": "src/internal/store/atomic.go",
+          "role": "Same-directory temp file, sync, close, rename; cleanup on failure",
+          "editable": true,
+          "anchors": ["func writeFileAtomic("]
+        },
+        {
+          "path": "src/internal/store/store_test.go",
+          "role": "Atomic write, permission, concurrency, merge, and round-trip regression tests",
+          "editable": true,
+          "anchors": ["TestWriteFileAtomicReplacesContentAndCleansTemp", "TestStoreConcurrentSettingsKeepEveryUpdate"]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./internal/store",
+        "cd src && go test -race ./internal/store",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
+      ]
+    },
+    "http-hardening": {
+      "description": "Step B: loopback Host/Origin guards, request-body limits, HTTP timeouts, and graceful server/desktop shutdown. Source and tests only; no runtime data.",
+      "keywords": [
+        "http",
+        "server",
+        "host",
+        "origin",
+        "timeout",
+        "shutdown",
+        "body",
+        "limit",
+        "hardening",
+        "loopback"
+      ],
+      "files": [
+        {
+          "path": "src/internal/dash/dash.go",
+          "role": "App HTTP server lifecycle, timeouts, idempotent event drain, and Serve/Shutdown wiring",
+          "editable": true,
+          "anchors": [
+            "func (a *App) Serve(",
+            "func (a *App) serve(",
+            "drainOnce"
+          ]
+        },
+        {
+          "path": "src/internal/dash/server.go",
+          "role": "Loopback Host/Origin guard, body-size limit, and graceful Shutdown helper",
+          "editable": true,
+          "anchors": [
+            "func (a *App) handler(",
+            "func (a *App) Shutdown(",
+            "maxRequestBodyBytes"
+          ]
+        },
+        {
+          "path": "src/internal/dash/server_test.go",
+          "role": "Host/Origin/body-limit/shutdown regression tests",
+          "editable": true,
+          "anchors": [
+            "TestHardenedHandlerRejectsForeignHost",
+            "TestServeShutdownStopsListener"
+          ]
+        },
+        {
+          "path": "src/main.go",
+          "role": "Headless server signal handling and graceful shutdown",
+          "editable": true,
+          "anchors": [
+            "signal.NotifyContext",
+            "app.Shutdown"
+          ]
+        },
+        {
+          "path": "src/app_desktop.go",
+          "role": "Desktop shutdown stops HTTP server before bots",
+          "editable": true,
+          "anchors": [
+            "func (d *DesktopApp) shutdown(",
+            "d.dapp.Shutdown"
+          ]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./internal/dash",
+        "cd src && go test -race ./internal/dash",
+        "cd src && go build ./...",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
+      ]
+    },
+    "write-error-propagation": {
+      "description": "Step C: propagate disk write errors through store, dashboard contract, legacy HTTP routes, and desktop/legacy UI save flows. Source and tests only; no runtime data.",
+      "keywords": [
+        "write",
+        "error",
+        "save",
+        "settings",
+        "file",
+        "message",
+        "propagate",
+        "status",
+        "failure"
+      ],
+      "files": [
+        {
+          "path": "src/internal/store/store.go",
+          "role": "Checked write APIs and SaveSettings error return",
+          "editable": true,
+          "anchors": [
+            "func (s *Store) SaveSettings(",
+            "func (s *Store) WriteFileChecked(",
+            "func (s *Store) WriteJSONChecked("
+          ]
+        },
+        {
+          "path": "src/internal/store/store_test.go",
+          "role": "Store write-error regression tests",
+          "editable": true,
+          "anchors": [
+            "TestSaveSettingsReturnsWriteError",
+            "TestWriteFileCheckedReportsUnknownAndWriteErrors"
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract.go",
+          "role": "SaveSection/updateReplySettings propagate write failures",
+          "editable": true,
+          "anchors": [
+            "func (a *App) SaveSection(",
+            "func (a *App) updateReplySettings("
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract_test.go",
+          "role": "Contract and legacy route write-failure tests",
+          "editable": true,
+          "anchors": [
+            "TestSaveSectionSetupWriteFailureReturnsError",
+            "TestLegacySettingsRouteReportsWriteFailure"
+          ]
+        },
+        {
+          "path": "src/internal/dash/dash.go",
+          "role": "Legacy settings/file/message routes and desktop wrappers return write errors",
+          "editable": true,
+          "anchors": [
+            "POST /api/settings",
+            "POST /api/file/save",
+            "func (a *App) SaveMessageSettings("
+          ]
+        },
+        {
+          "path": "src/app_desktop.go",
+          "role": "Desktop SaveFile/SaveMessageSettings return ok/error",
+          "editable": true,
+          "anchors": [
+            "func (d *DesktopApp) SaveFile(",
+            "func (d *DesktopApp) SaveMessageSettings("
+          ]
+        },
+        {
+          "path": "src/frontend/dist/app.js",
+          "role": "saveSection success/failure result; message save stops after failure",
+          "editable": true,
+          "anchors": [
+            "async function saveSection(",
+            "const credentialsSaved = await saveSection("
+          ]
+        },
+        {
+          "path": "src/internal/dash/index.html",
+          "role": "Legacy file/message save handlers surface write errors",
+          "editable": true,
+          "anchors": [
+            "data-save-file",
+            "save-message"
+          ]
+        },
+        {
+          "path": "tests/contract.test.cjs",
+          "role": "UI save failure propagation source tests",
+          "editable": true,
+          "anchors": [
+            "desktop saveSection reports success/failure",
+            "legacy message save checks each file write"
+          ]
+        }
+      ],
+      "checks": [
+        "cd src && go test ./internal/store ./internal/dash",
+        "node --check src/frontend/dist/app.js",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs"
+      ]
+    },
+    "ci-quality": {
+      "description": "Step D: CI quality gates, YAML-aware project manager, and one-time gofmt normalization. Source/tooling only; no runtime data.",
+      "keywords": [
+        "ci",
+        "workflow",
+        "github actions",
+        "gofmt",
+        "vet",
+        "race",
+        "build",
+        "cache"
+      ],
+      "checks": [
+        "node --test tests/project-manager.test.cjs",
+        "./pm verify --scope ci-quality"
+      ],
+      "files": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "role": "CI gates: node, gofmt/vet/test/race, Windows desktop build",
+          "editable": true,
+          "anchors": [
+            "name: CI",
+            "go-internal",
+            "desktop-build",
+            "cache-dependency-path: src/go.sum"
+          ]
+        },
+        {
+          "path": "tools/project-manager.cjs",
+          "role": "Allow YAML workflow files in scoped reads/edits",
+          "editable": true,
+          "anchors": [
+            "const ALLOWED_EXTENSIONS"
+          ]
+        },
+        {
+          "path": "tests/project-manager.test.cjs",
+          "role": "YAML allowlist regression test",
+          "editable": true,
+          "anchors": [
+            "project manager can scope YAML workflow files when allowlisted"
+          ]
+        },
+        {
+          "path": "src/app_contract.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package main"
+          ]
+        },
+        {
+          "path": "src/cmd/observer/main.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package"
+          ]
+        },
+        {
+          "path": "src/internal/bot/bot.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package bot"
+          ]
+        },
+        {
+          "path": "src/internal/bot/transport.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package bot"
+          ]
+        },
+        {
+          "path": "src/internal/browser/browser.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package browser"
+          ]
+        },
+        {
+          "path": "src/internal/browser/launch.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package"
+          ]
+        },
+        {
+          "path": "src/internal/browser/session.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package browser"
+          ]
+        },
+        {
+          "path": "src/internal/browser/session_test.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package browser"
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package dash"
+          ]
+        },
+        {
+          "path": "src/internal/dash/contract_test.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package dash"
+          ]
+        },
+        {
+          "path": "src/internal/redact/redact.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package redact"
+          ]
+        },
+        {
+          "path": "src/internal/redact/redact_test.go",
+          "role": "gofmt normalization only",
+          "editable": true,
+          "anchors": [
+            "package redact"
+          ]
+        }
+      ]
+    }
+,
+    "documentation": {
+      "description": "Step E: user-facing architecture, run/troubleshooting, privacy, and changelog documentation. Docs only; no runtime data.",
+      "keywords": [
+        "docs",
+        "documentation",
+        "readme",
+        "changelog",
+        "architecture",
+        "troubleshooting",
+        "privacy",
+        "ci"
+      ],
+      "checks": [
+        "./pm verify --scope documentation"
+      ],
+      "files": [
+        {
+          "path": "README.md",
+          "role": "Quick run, architecture, reliability, tests/CI, troubleshooting, privacy",
+          "editable": true,
+          "anchors": [
+            "## Architecture",
+            "## Troubleshooting",
+            "## Reliability and safety behavior"
+          ]
+        },
+        {
+          "path": "CHANGELOG.md",
+          "role": "Unreleased clean-source reliability changelog",
+          "editable": true,
+          "anchors": [
+            "## [Unreleased]",
+            "### Clean-source reliability steps"
+          ]
+        }
+      ]
+    }
+,
+    "frontend-a11y-ux": {
+      "description": "Step F: desktop frontend accessibility and UX polish: ARIA tabs, keyboard navigation, focus/reduced-motion, labelled live regions, and regression tests. No runtime data.",
+      "keywords": [
+        "accessibility",
+        "a11y",
+        "keyboard",
+        "focus",
+        "aria",
+        "tabs",
+        "ux",
+        "reduced motion",
+        "screen reader"
+      ],
+      "checks": [
+        "node --check src/frontend/dist/app.js",
+        "node --test tests/contract.test.cjs tests/project-manager.test.cjs",
+        "./pm verify --scope frontend-a11y-ux"
+      ],
+      "files": [
+        {
+          "path": "src/frontend/dist/index.html",
+          "role": "ARIA tablist/tab/tabpanel, skip link, labelled live regions",
+          "editable": true,
+          "anchors": [
+            "role=\"tablist\"",
+            "id=\"main-content\"",
+            "role=\"log\""
+          ]
+        },
+        {
+          "path": "src/frontend/dist/app.js",
+          "role": "Roving tabindex, hidden panels, keyboard tab navigation",
+          "editable": true,
+          "anchors": [
+            "function bindTabNavigation",
+            "aria-selected",
+            "panel.hidden = !active"
+          ]
+        },
+        {
+          "path": "src/frontend/dist/styles.css",
+          "role": "Focus-visible, skip link, hidden panels, reduced motion",
+          "editable": true,
+          "anchors": [
+            ":focus-visible",
+            ".skip-link",
+            "prefers-reduced-motion: reduce"
+          ]
+        },
+        {
+          "path": "tests/contract.test.cjs",
+          "role": "Desktop accessibility regression tests",
+          "editable": true,
+          "anchors": [
+            "desktop navigation uses ARIA tabs with labelled panels",
+            "tab keyboard navigation supports arrows/Home/End and moves focus"
+          ]
+        },
+        {
+          "path": "CHANGELOG.md",
+          "role": "Record accessibility/UX polish",
+          "editable": true,
+          "anchors": [
+            "Keyboard-accessible desktop tabs",
+            "Visible focus indicators"
+          ]
+        }
+      ]
+    }
+
+  }
+}

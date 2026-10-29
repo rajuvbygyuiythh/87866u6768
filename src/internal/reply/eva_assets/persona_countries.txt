@@ -1,0 +1,19 @@
+# persona_countries.txt — the bot picks ONE random country per user for its persona ({country}).
+# One country per line. '#' = comment.
+uk
+ireland
+germany
+france
+italy
+spain
+netherlands
+belgium
+sweden
+norway
+denmark
+finland
+poland
+austria
+switzerland
+portugal
+czech republic

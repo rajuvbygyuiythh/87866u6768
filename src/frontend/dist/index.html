@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="forest">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thundr Console</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div class="shell visible">
+    <!-- ==================================================================
+         SIDEBAR — brand + 6 flat tabs (subnav system removed).
+         ================================================================== -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" id="brand-mark">TC</div>
+        <div>
+          <div class="brand-title" id="brand-title">Thundr Console</div>
+          <div class="brand-subtitle" id="brand-subtitle">Bot operations · Go + WebView</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Main sections" role="tablist">
+        <button id="tab-home" class="nav-button active" data-tab="home" type="button" role="tab" aria-selected="true" aria-controls="panel-home" tabindex="0">Home</button>
+        <button id="tab-proxy" class="nav-button" data-tab="proxy" type="button" role="tab" aria-selected="false" aria-controls="panel-proxy" tabindex="-1">Proxy</button>
+        <button id="tab-messages" class="nav-button" data-tab="messages" type="button" role="tab" aria-selected="false" aria-controls="panel-messages" tabindex="-1">Messages</button>
+        <button id="tab-browser" class="nav-button" data-tab="browser" type="button" role="tab" aria-selected="false" aria-controls="panel-browser" tabindex="-1">Browser</button>
+        <button id="tab-settings" class="nav-button" data-tab="settings" type="button" role="tab" aria-selected="false" aria-controls="panel-settings" tabindex="-1">Settings</button>
+        <button id="tab-logs" class="nav-button" data-tab="logs" type="button" role="tab" aria-selected="false" aria-controls="panel-logs" tabindex="-1">Logs</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-row">
+          <span class="status-label">Workers</span>
+          <span id="running-pill" class="pill stopped">Stopped</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Backend</span>
+          <span id="backend-pill" class="pill stopped">…</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main" id="main-content" tabindex="-1">
+      <!-- ============================== HOME ============================== -->
+      <section id="panel-home" class="tab-panel active" data-panel="home" role="tabpanel" aria-labelledby="tab-home">
+        <header class="panel-header">
+          <div>
+            <div class="title-row">
+              <h1>Home</h1>
+              <span id="home-run-badge" class="mode-badge">Idle</span>
+            </div>
+            <p>Live fleet overview — total accounts, running bots, chats and shares this session.</p>
+          </div>
+          <div class="actions">
+            <label class="theme-picker">
+              Theme
+              <select id="theme-select" aria-label="Theme">
+                <option value="forest">Forest</option>
+                <option value="ocean">Ocean</option>
+                <option value="light">Light</option>
+              </select>
+            </label>
+            <button id="home-refresh" class="secondary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <!-- Explicit demo only: open the page with ?demo=1. -->
+        <div class="demo-banner" id="demo-banner" role="status" aria-live="polite" hidden>
+          <span><strong>Demo backend active.</strong> The UI is running on in-memory mock data — no Go or HTTP backend connected. Opt in with <code>?demo=1</code>.</span>
+          <button id="demo-hide" type="button">Hide</button>
+        </div>
+
+        <div class="backend-unavailable-banner" id="backend-unavailable-banner" role="alert" hidden>
+          <span><strong>Backend unavailable.</strong> Start the Go server or desktop app, then click Retry. For UI-only demo, open with <code>?demo=1</code>.</span>
+          <button id="backend-retry" type="button">Retry</button>
+        </div>
+
+        <div class="home-stats" role="group" aria-label="Fleet status">
+          <div class="stat-capsule"><span>Total Accounts</span><strong id="stat-accounts">0</strong></div>
+          <div class="stat-capsule"><span>Running</span><strong id="stat-running">0</strong></div>
+          <div class="stat-capsule"><span>Chats</span><strong id="stat-chats">0</strong></div>
+          <div class="stat-capsule"><span>Snap Shares</span><strong id="stat-snaps">0</strong></div>
+          <div class="stat-capsule"><span>Telegram Shares</span><strong id="stat-tg">0</strong></div>
+          <div class="stat-capsule danger"><span>Banned</span><strong id="stat-banned">0</strong></div>
+        </div>
+
+        <section class="card">
+          <div class="step-head"><span class="step-num">▶</span><h2>Run control</h2></div>
+          <p class="hint-text">Pick how the workers chat: visible browser windows with saved sessions, or direct websocket/API workers without a browser.</p>
+          <div class="form-grid two-column">
+            <label>
+              <span>Workers (threads) — how many run together</span>
+              <input type="number" id="home-workers" min="1" max="10" step="1" value="1" title="Visible mode = how many Chrome windows; API mode = how many websocket workers">
+            </label>
+          </div>
+          <div class="form-actions inline">
+            <button id="home-start" class="primary-button" type="button">Start</button>
+            <button id="home-stop" class="danger-button" type="button" disabled>Stop</button>
+            <span id="home-status" class="status-line" role="status" aria-live="polite">Idle.</span>
+          </div>
+
+          <div id="home-mode-cards" class="home-mode-cards" hidden>
+            <button id="home-start-visible" class="mode-card-btn" type="button">
+              <strong>👁 Visible browser chat</strong>
+              <span>Opens real Chrome windows with each account's saved session — replies render in the page like a human.</span>
+            </button>
+            <button id="home-start-ws" class="mode-card-btn" type="button">
+              <strong>⚡ API chat</strong>
+              <span>Direct websocket workers, no browser window — fastest and lightest, uses the same saved sessions.</span>
+            </button>
+            <button id="home-mode-cancel" class="secondary-button" type="button">Cancel</button>
+          </div>
+        </section>
+      </section>
+<!-- ============================== PROXY ============================== -->
+      <section id="panel-proxy" class="tab-panel" data-panel="proxy" role="tabpanel" aria-labelledby="tab-proxy" hidden>
+        <header class="panel-header">
+          <div>
+            <div class="title-row">
+              <h1>Proxy</h1>
+              <span class="mode-badge">Connections</span>
+            </div>
+            <p>Route every worker through a proxy, or run on the local network. http / https / socks5 / socks5h all supported.</p>
+          </div>
+          <div class="actions">
+            <button id="proxy-refresh" class="secondary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <section class="card">
+          <div class="step-head"><span class="step-num">1</span><h2>Proxy list</h2></div>
+          <div class="form-grid two-column">
+            <label class="checkbox-row">
+              <input type="checkbox" id="proxy-enabled">
+              <span>Enable proxy — unchecked = direct local network</span>
+            </label>
+            <label>
+              <span>Scheme (applies to plain host:port lines)</span>
+              <select id="proxy-scheme">
+                <option value="http">http</option>
+                <option value="https">https</option>
+                <option value="socks5">socks5</option>
+                <option value="socks5h">socks5h (remote DNS)</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            <span>Entries (one per line)</span>
+            <textarea id="proxy-entries" rows="6" placeholder="1.2.3.4:8080&#10;user:pass@1.2.3.5:1080&#10;socks5://user:pass@1.2.3.6:1080"></textarea>
+          </label>
+          <div class="form-actions inline">
+            <button id="proxy-save" class="primary-button" type="button">Save Proxy</button>
+            <button id="proxy-test" class="secondary-button" type="button">Test Connections</button>
+          </div>
+          <p id="proxy-status" class="status-line" role="status" aria-live="polite">Not tested.</p>
+          <div id="proxy-results" class="proxy-results"></div>
+        </section>
+      </section>
+<!-- ============================= MESSAGES ============================ -->
+      <section id="panel-messages" class="tab-panel" data-panel="messages" role="tabpanel" aria-labelledby="tab-messages" hidden>
+        <header class="panel-header">
+          <div>
+            <div class="title-row">
+              <h1>Messages</h1>
+              <span class="mode-badge">Script &amp; API</span>
+            </div>
+            <p>Where the chat lines come from: a single sequence, a folder of SMS sequences, or a model writing every reply.</p>
+          </div>
+          <div class="actions">
+            <button id="msg-refresh" class="secondary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <section class="card">
+          <div class="step-head"><span class="step-num">2</span><h2>Strategy</h2></div>
+
+          <div class="chat-mode-card" role="radiogroup" aria-labelledby="msg-strategy-label">
+            <span class="mode-label" id="msg-strategy-label">Strategy</span>
+            <div class="mode-options">
+              <label class="mode-option" id="msg-option-single">
+                <input type="radio" name="msg-strategy" value="single" id="msg-strategy-single" checked>
+                <span>Single sequence</span>
+              </label>
+              <label class="mode-option" id="msg-option-folder">
+                <input type="radio" name="msg-strategy" value="folder" id="msg-strategy-folder">
+                <span>SMS folder</span>
+              </label>
+              <label class="mode-option" id="msg-option-model">
+                <input type="radio" name="msg-strategy" value="model" id="msg-strategy-model">
+                <span>API / model</span>
+              </label>
+            </div>
+          </div>
+
+          <div id="msg-section-single">
+            <label>
+              <span>First messages (one per line)</span>
+              <textarea id="msg-sequence" rows="7" placeholder="hello %username%&#10;ok, checking. wait a bit."></textarea>
+            </label>
+            <p class="hint-text"><code>%username%</code> inserts a random handle, <code>{hello|hi}</code> picks one variant.</p>
+          </div>
+
+          <div id="msg-section-folder" style="display: none;">
+            <label>
+              <span>SMS sequences folder path</span>
+              <input type="text" id="msg-folder-path" placeholder="D:\sms" autocomplete="off">
+            </label>
+            <div class="form-actions inline">
+              <button id="msg-browse-folder" class="secondary-button" type="button">Browse…</button>
+              <button id="msg-load-folder" class="secondary-button" type="button">Load Folder</button>
+              <button id="msg-clean-folder" class="danger-button" type="button">Clean Loaded</button>
+              <span id="msg-folder-status" class="status-line" role="status" aria-live="polite">0 sequences loaded</span>
+            </div>
+          </div>
+
+          <div id="msg-section-model" style="display: none;">
+            <p class="hint-text">Model-written replies use the API set below — test it before starting.</p>
+          </div>
+
+          <label>
+            <span>Snap / Telegram targets (one per line)</span>
+            <textarea id="msg-targets" rows="3" placeholder="snap_handle&#10;@telegram_handle"></textarea>
+          </label>
+
+          <div class="form-actions inline">
+            <button id="msg-save" class="primary-button" type="button">Save Messages</button>
+            <span id="msg-status" class="status-line" role="status" aria-live="polite"></span>
+          </div>
+        </section>
+
+        <section class="card" id="msg-api-card" style="margin-top: 16px;">
+          <div class="step-head"><span class="step-num">+</span><h2>API set</h2></div>
+          <p class="hint-text">OpenAI-compatible endpoint used by the API strategy (and API-chat workers).</p>
+          <div class="form-grid two-column">
+            <label>
+              <span>Base URL</span>
+              <input type="text" id="msg-cred-base-url" placeholder="https://api.featherless.ai/v1" autocomplete="off">
+            </label>
+            <label>
+              <span>API key</span>
+              <input type="password" id="msg-cred-api-key" placeholder="sk-…" autocomplete="off">
+            </label>
+            <label>
+              <span>Model</span>
+              <input type="text" id="msg-cred-model" placeholder="deepseek-ai/DeepSeek-V3-0324" autocomplete="off">
+            </label>
+            <label>
+              <span>Temperature</span>
+              <input type="number" id="msg-cred-temperature" min="0" max="2" step="0.1" value="0.9">
+            </label>
+          </div>
+          <div class="form-actions inline">
+            <button id="msg-api-test" class="secondary-button" type="button">Test API</button>
+            <span id="msg-api-status" class="status-line" role="status" aria-live="polite"></span>
+          </div>
+        </section>
+      </section>
+<!-- ============================== BROWSER ============================== -->
+      <section id="panel-browser" class="tab-panel" data-panel="browser" role="tabpanel" aria-labelledby="tab-browser" hidden>
+        <header class="panel-header">
+          <div>
+            <div class="title-row">
+              <h1>Browser</h1>
+              <span class="mode-badge">Auto-register</span>
+            </div>
+            <p>One click opens a real Chrome, registers one thundr account, saves its session locally and closes the browser.</p>
+          </div>
+          <div class="actions">
+            <button id="browser-refresh" class="secondary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <section class="card">
+          <div class="step-head"><span class="step-num">3</span><h2>Run browser — auto register</h2></div>
+          <p class="hint-text">Each click registers ONE account: Chrome opens, the account is created automatically, the session and browser profile are saved on disk, then Chrome closes. Press it again for another account. Home → Run starts the bot with the saved session — no login needed.</p>
+          <div class="form-actions">
+            <button id="browser-register" class="primary-button" type="button" style="width: 100%;">Run Browser</button>
+          </div>
+          <p id="browser-register-status" class="status-line" role="status" aria-live="polite">Idle.</p>
+        </section>
+      </section>
+
+      <!-- ============================== SETTINGS ============================== -->
+      <section id="panel-settings" class="tab-panel" data-panel="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+        <header class="panel-header">
+          <div>
+            <div class="title-row">
+              <h1>Settings</h1>
+              <span class="mode-badge">Timings &amp; behaviour</span>
+            </div>
+            <p>Random-delay ranges in seconds (each reply picks a fresh random value inside min–max).</p>
+          </div>
+          <div class="actions">
+            <button id="settings-refresh" class="secondary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <section class="card">
+          <div class="step-head"><span class="step-num">4</span><h2>Timings</h2></div>
+          <div class="form-grid two-column">
+            <label><span>Reply delay min (s)</span><input type="number" id="set-reply-min" min="0" max="3600" step="0.5" value="2"></label>
+            <label><span>Reply delay max (s)</span><input type="number" id="set-reply-max" min="0" max="3600" step="0.5" value="5"></label>
+            <label><span>Silent partner skip min (s)</span><input type="number" id="set-silent-min" min="0" max="3600" step="1" value="10"></label>
+            <label><span>Silent partner skip max (s)</span><input type="number" id="set-silent-max" min="0" max="3600" step="1" value="15"></label>
+            <label><span>Re-roll pause min (s)</span><input type="number" id="set-reroll-min" min="0" max="3600" step="1" value="6"></label>
+            <label><span>Re-roll pause max (s)</span><input type="number" id="set-reroll-max" min="0" max="3600" step="1" value="12"></label>
+            <label><span>Instant-skip under (s)</span><input type="number" id="set-instskip" min="0" max="3600" step="1" value="5"></label>
+            <label><span>Worker lifetime (s)</span><input type="number" id="set-worktime" min="0" max="86400" step="10" value="600"></label>
+            <label><span>No-match watchdog (s)</span><input type="number" id="set-nomatch" min="0" max="3600" step="5" value="75"></label>
+          </div>
+          <div class="form-actions inline">
+            <button id="set-save" class="primary-button" type="button">Save Settings</button>
+            <span id="set-status" class="status-line" role="status" aria-live="polite"></span>
+          </div>
+        </section>
+
+        <section class="card" style="margin-top: 16px;">
+          <div class="step-head"><span class="step-num">+</span><h2>Behaviour</h2></div>
+          <div class="form-actions inline">
+            <label class="checkbox-row">
+              <input type="checkbox" id="set-sends-first">
+              <span>Bot sends the first message (off = wait for the partner to write first)</span>
+            </label>
+          </div>
+        </section>
+      </section>
+<!-- ================================ LOGS ================================ -->
+      <section id="panel-logs" class="tab-panel" data-panel="logs" role="tabpanel" aria-labelledby="tab-logs" hidden>
+        <header class="panel-header">
+          <div>
+            <div class="title-row">
+              <h1>Logs</h1>
+              <span class="mode-badge">Live</span>
+            </div>
+            <p>Real-time bot ↔ user chat and worker activity, straight from the running bots.</p>
+          </div>
+          <div class="actions">
+            <button id="logs-refresh" class="secondary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <section class="card log-card">
+          <div class="log-header">
+            <h2>Live logs</h2>
+            <div class="log-tools">
+              <select id="logs-filter" aria-label="Filter logs">
+                <option value="all">All</option>
+                <option value="io">IN / OUT (chat)</option>
+                <option value="system">System</option>
+                <option value="errors">Errors</option>
+              </select>
+              <button id="logs-clear" class="secondary-button" type="button">Clear</button>
+            </div>
+          </div>
+          <div id="logs-list" class="log-list" role="log" aria-label="Live logs" aria-live="polite" aria-atomic="false"></div>
+          <p id="logs-empty" class="hint-text">No activity yet. Press Start on Home.</p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-wrap" id="toast-wrap" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Demo backend is loaded dynamically only for explicit ?demo=1 opt-in. -->
+  <script src="./app.js"></script>
+</body>
+</html>

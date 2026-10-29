@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: ["arena/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Syntax checks
+        run: |
+          node --check src/frontend/dist/app.js
+          node --check src/frontend/dist/js/mock-backend.js
+      - name: Contract and tooling tests
+        run: node --test tests/contract.test.cjs tests/project-manager.test.cjs
+
+  go-internal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Go format check
+        working-directory: src
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+      - name: Go vet (internal + cmd)
+        working-directory: src
+        run: go vet ./internal/... ./cmd/...
+      - name: Go internal package tests
+        working-directory: src
+        run: go test ./internal/...
+      - name: Go race tests
+        working-directory: src
+        run: go test -race ./internal/...
+
+  desktop-build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Build all packages
+        working-directory: src
+        run: go build ./...
+      - name: Vet all packages
+        working-directory: src
+        run: go vet ./...

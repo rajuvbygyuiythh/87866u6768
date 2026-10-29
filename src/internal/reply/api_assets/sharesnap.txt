@@ -1,0 +1,26 @@
+# API Chat SNAP share deck. One line = one share message.
+# This whole file is snap-only: when the assigned handle is a snap handle
+# ("snap:..." or no prefix in the dashboard), the share line is picked from
+# HERE. (Telegram lines live in sharetg.txt.)
+#
+# %username% is replaced by the app with a dashboard handle. Never write @
+# usernames here. Legacy: a line starting with [tg] still counts as a telegram
+# line if one ever lands here, but keep this file snap-only.
+ok fine, add me on snap %username%
+my snap is %username%, add me rn
+sc: %username% .. come find me there
+ok u got me lol, snap %username%
+just add me on snap, %username%
+snap me: %username%
+u on snap? its %username%
+add my snap %username% before i change my mind
+fine, %username% .. dont make it weird
+my sc is %username%, u better add me
+okok %username%
+%username% .. thats it, thats the snap
+find me on snap: %username%
+snap: %username% (dont lose it)
+u got lucky, %username%
+add %username% and say hi
+sc %username%, i barely check this app
+ok here: %username%

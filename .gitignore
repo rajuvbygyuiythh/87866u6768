@@ -1,0 +1,29 @@
+# Runtime / private state: never commit or open with the project helper.
+/data/
+/src/data/
+thundr-go-source.zip
+*.zip
+/browser-profiles/
+/sessions/
+/webview/
+.env
+.env.*
+*.log
+registered_*.txt
+proxies.txt
+settings.txt
+message_settings.json
+telegram.txt
+snaps.txt
+interests.txt
+loaded_sequences.json
+docs/proof-live-chat.txt
+docs/realtest-log*.txt
+
+# Local build / dependency / temporary artifacts.
+node_modules/
+src/build/bin/
+*.exe
+*.tmp
+.pm-*.tmp
+__pycache__/
